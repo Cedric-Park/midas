@@ -296,7 +296,7 @@ app.get('/appointments', (req, res) => {
     const appointments = db.prepare(`
       SELECT 
         a.*,
-        m.name as memberName,
+        COALESCE(m.name, '삭제된 회원') as memberName,
         m.gender,
         m.birth_date,
         m.purpose,
