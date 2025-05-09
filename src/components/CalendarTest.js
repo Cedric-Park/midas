@@ -23,6 +23,7 @@ const CalendarTest = () => {
   const [appointments, setAppointments] = useState([]);
   const [members, setMembers] = useState([]);
   const [openDialog, setOpenDialog] = useState(false);
+  const [openEventDialog, setOpenEventDialog] = useState(false);
   const [selectedTime, setSelectedTime] = useState(null);
   const [selectedMember, setSelectedMember] = useState(null);
   const [selectedEvent, setSelectedEvent] = useState(null);
@@ -133,24 +134,50 @@ const CalendarTest = () => {
 
   useEffect(() => {
     if (members.length === 0) return;
+    
     const fetchAllSessionHistory = async () => {
       try {
-        const allHistory = await Promise.all(
-          members.map(member =>
-            axios.get(`http://localhost:3001/sessionHistory?memberId=${member.id}`)
-              .then(res => ({ member, history: res.data }))
-          )
-        );
+        // 최근 30일 데이터만 가져오도록 수정
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        const thirtyDaysAgoStr = thirtyDaysAgo.toISOString();
+
+        // 병렬 요청 제한
+        const batchSize = 5;
+        const allHistory = [];
+        
+        for (let i = 0; i < members.length; i += batchSize) {
+          const batch = members.slice(i, i + batchSize);
+          const batchResults = await Promise.all(
+            batch.map(member =>
+              axios.get(`http://localhost:3001/sessionHistory?memberId=${member.id}&startDate=${thirtyDaysAgoStr}`)
+                .then(res => ({ member, history: res.data }))
+                .catch(error => {
+                  console.error(`회원 ${member.id}의 세션 내역 조회 실패:`, error);
+                  return { member, history: [] };
+                })
+            )
+          );
+          allHistory.push(...batchResults);
+          
+          // 각 배치 사이에 약간의 지연 추가
+          if (i + batchSize < members.length) {
+            await new Promise(resolve => setTimeout(resolve, 100));
+          }
+        }
+
         const now = new Date();
         // 최근 7일/30일 내 세션 개수 집계
         const weekly = allHistory.map(({ member, history }) => ({
           member,
           count: history.filter(h => (now - new Date(h.date)) / (1000*60*60*24) <= 7).length
         })).filter(item => item.count > 0);
+
         const monthly = allHistory.map(({ member, history }) => ({
           member,
           count: history.filter(h => (now - new Date(h.date)) / (1000*60*60*24) <= 30).length
         })).filter(item => item.count > 0);
+
         // 내림차순 정렬 후 Top 10
         setWeeklyTop(weekly.sort((a, b) => b.count - a.count).slice(0, 10));
         setMonthlyTop(monthly.sort((a, b) => b.count - a.count).slice(0, 10));
@@ -158,7 +185,10 @@ const CalendarTest = () => {
         console.error('세션 통계 집계 실패:', error);
       }
     };
-    fetchAllSessionHistory();
+
+    // 디바운스 처리
+    const timeoutId = setTimeout(fetchAllSessionHistory, 1000);
+    return () => clearTimeout(timeoutId);
   }, [members, appointments]);
 
   const loadSessionHistory = async (memberId) => {
@@ -203,26 +233,49 @@ const CalendarTest = () => {
   };
 
   const handleEventClick = async (clickInfo) => {
-    setSelectedEvent(clickInfo.event);
-    setEventMember(null);
+    const event = clickInfo.event;
+    const memberId = event.extendedProps.memberId;
+    
     try {
-      const memberId = clickInfo.event.extendedProps.memberId;
-      if (!memberId) {
-        console.error('회원 ID가 없습니다.');
-        return;
-      }
-      const response = await axios.get(`http://localhost:3001/members/${memberId}`);
-      console.log('클릭한 회원 정보:', response.data);
-      if (response.data) {
-        setEventMember(response.data);
-        await loadSessionHistory(memberId);
-      } else {
-        console.error('회원 정보를 찾을 수 없습니다.');
-      }
+      // 회원 정보를 다시 불러옵니다
+      const memberResponse = await axios.get(`http://localhost:3001/members/${memberId}`);
+      const member = memberResponse.data;
+      
+      setSelectedEvent({
+        id: event.id,
+        title: event.title,
+        start: event.start,
+        end: event.end,
+        memberId: memberId,
+        member: member,
+        status: event.extendedProps.status
+      });
+      setEventMember(member);
+      await loadSessionHistory(memberId);
+      setOpenEventDialog(true);
     } catch (error) {
       console.error('회원 정보를 불러오는데 실패했습니다:', error);
     }
   };
+
+  // 회원 정보 변경 이벤트 리스너 추가
+  useEffect(() => {
+    const handleMemberChange = async () => {
+      if (eventMember) {
+        try {
+          const memberResponse = await axios.get(`http://localhost:3001/members/${eventMember.id}`);
+          setEventMember(memberResponse.data);
+        } catch (error) {
+          console.error('회원 정보를 불러오는데 실패했습니다:', error);
+        }
+      }
+    };
+
+    window.addEventListener('memberChange', handleMemberChange);
+    return () => {
+      window.removeEventListener('memberChange', handleMemberChange);
+    };
+  }, [eventMember]);
 
   const handleCompleteTreatment = () => {
     if (!treatmentNote) {
@@ -230,15 +283,19 @@ const CalendarTest = () => {
       return;
     }
 
+    if (!selectedEvent || !eventMember) {
+      alert('회원 정보를 불러오는데 실패했습니다. 다시 시도해주세요.');
+      return;
+    }
+
     const newSessionHistory = {
-      memberId: selectedEvent.extendedProps.memberId,
-      date: new Date().toISOString(),
+      memberId: selectedEvent.memberId,
+      date: selectedEvent.start,
       note: treatmentNote
     };
 
     axios.post('http://localhost:3001/sessionHistory', newSessionHistory)
       .then(() => {
-        // 예약 상태를 completed로 변경
         return axios.patch(`http://localhost:3001/appointments/${selectedEvent.id}`, {
           status: 'completed'
         });
@@ -246,19 +303,74 @@ const CalendarTest = () => {
       .then(() => {
         // 세션 종료 시 회원 lastVisit도 오늘 날짜로 PATCH
         const todayStr = new Date().toISOString().split('T')[0];
-        return axios.patch(`http://localhost:3001/members/${selectedEvent.extendedProps.memberId}`, { 
-          last_visit: todayStr,
-          remaining_sessions: eventMember.remaining_sessions - 1
-        });
+        const updateData = { 
+          last_visit: todayStr
+        };
+        
+        // 의존 관계가 있는 경우 의존하는 회원의 remaining_sessions를 감소
+        if (eventMember.depends_on && JSON.parse(eventMember.depends_on).length > 0) {
+          const dependentId = JSON.parse(eventMember.depends_on)[0];
+          const dependentMember = members.find(m => m.id === dependentId);
+          if (dependentMember) {
+            // 의존하는 회원의 remaining_sessions 감소 및 last_visit 업데이트
+            return axios.patch(`http://localhost:3001/members/${dependentId}`, {
+              remaining_sessions: dependentMember.remaining_sessions - 1,
+              last_visit: todayStr,
+              name: dependentMember.name,
+              phone: dependentMember.phone,
+              gender: dependentMember.gender,
+              birth_date: dependentMember.birth_date,
+              purpose: dependentMember.purpose,
+              join_date: dependentMember.join_date,
+              notes: dependentMember.notes,
+              shared_with: dependentMember.shared_with,
+              depends_on: dependentMember.depends_on
+            }).then(() => {
+              // 공유하는 회원의 세션 내역에 의존하는 회원의 세션 완료 정보 기록
+              const beforeCount = dependentMember.remaining_sessions;
+              const afterCount = beforeCount - 1;
+              const sharedSessionNote = `${eventMember.name}님이 관리 횟수 1을 사용하셨습니다. (${beforeCount}회 → ${afterCount}회)`;
+              return axios.post('http://localhost:3001/sessionHistory', {
+                memberId: dependentId,
+                date: selectedEvent.start,
+                note: sharedSessionNote
+              });
+            });
+          }
+        } else {
+          // 의존 관계가 없는 경우 자신의 remaining_sessions를 감소
+          updateData.remaining_sessions = eventMember.remaining_sessions - 1;
+          updateData.name = eventMember.name;
+          updateData.phone = eventMember.phone;
+          updateData.gender = eventMember.gender;
+          updateData.birth_date = eventMember.birth_date;
+          updateData.purpose = eventMember.purpose;
+          updateData.join_date = eventMember.join_date;
+          updateData.notes = eventMember.notes;
+          updateData.shared_with = eventMember.shared_with;
+          updateData.depends_on = eventMember.depends_on;
+        }
+        
+        return axios.patch(`http://localhost:3001/members/${selectedEvent.memberId}`, updateData);
       })
       .then(() => {
         // 세션 내역 목록 다시 불러오기
-        return loadSessionHistory(selectedEvent.extendedProps.memberId);
+        return loadSessionHistory(selectedEvent.memberId);
       })
       .then(() => {
+        // 회원 정보를 다시 불러옵니다
+        return axios.get(`http://localhost:3001/members/${selectedEvent.memberId}`);
+      })
+      .then((response) => {
+        setEventMember(response.data);
         setAppointments(appointments.map(app =>
-          String(app.id) === String(selectedEvent.id) ? { ...app, status: 'completed' } : app
+          app.id === selectedEvent.id ? { ...app, status: 'completed' } : app
         ));
+        // 회원 목록을 다시 불러옵니다
+        return axios.get('http://localhost:3001/members');
+      })
+      .then((response) => {
+        setMembers(response.data);
         setTreatmentNote('');
         setToastOpen(true);
         handleCloseEventDialog();
@@ -273,7 +385,7 @@ const CalendarTest = () => {
     if (window.confirm('정말로 이 예약을 취소하시겠습니까?')) {
       const appointmentId = String(selectedEvent.id);
       // 관리 완료된 예약인지 확인
-      if (selectedEvent.extendedProps.status === 'completed') {
+      if (selectedEvent.status === 'completed') {
         alert('이미 관리가 완료된 예약은 취소할 수 없습니다.');
         return;
       }
@@ -325,6 +437,7 @@ const CalendarTest = () => {
               }
               setSelectedEvent(null);
               setEventMember(null);
+              setOpenEventDialog(false);
             });
         })
         .catch(error => {
@@ -354,6 +467,7 @@ const CalendarTest = () => {
     setNextVisit('');
     setSessionHistory([]);
     setActiveTab(0);
+    setOpenEventDialog(false);
   };
 
   const handleTabChange = (event, newValue) => {
@@ -543,7 +657,9 @@ const CalendarTest = () => {
                 renderOption={(props, option) => (
                   <Box component="li" {...props} key={option.id}>
                     <Box>
-                      <Typography variant="body1">{option.name}</Typography>
+                      <Typography variant="body1">
+                        {option.name}
+                      </Typography>
                       <Typography variant="body2" color="text.secondary">
                         {option.phone} | {option.purpose} | {option.gender} | {option.birth_date}
                       </Typography>
@@ -561,7 +677,7 @@ const CalendarTest = () => {
           </DialogActions>
         </Dialog>
 
-        <Dialog open={Boolean(selectedEvent)} onClose={handleCloseEventDialog} maxWidth="md" fullWidth>
+        <Dialog open={openEventDialog} onClose={handleCloseEventDialog} maxWidth="md" fullWidth>
           <DialogTitle>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <Typography variant="h6">예약 상세 정보</Typography>
@@ -625,23 +741,71 @@ const CalendarTest = () => {
                         <Grid item xs={12}>
                           <Typography variant="body2" color="text.secondary">남은 관리횟수</Typography>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <Typography variant="body1">{eventMember.remaining_sessions}회</Typography>
-                            {eventMember.remaining_sessions < 3 && (
-                              <Tooltip title="관리횟수가 부족합니다. 충전이 필요합니다." arrow>
-                                <Chip 
-                                  label="관리횟수 부족" 
-                                  color="warning" 
-                                  size="small"
-                                  sx={{ 
-                                    background: '#fff3e0',
-                                    color: '#e65100',
-                                    fontWeight: 600
-                                  }}
-                                />
-                              </Tooltip>
+                            {eventMember.depends_on && JSON.parse(eventMember.depends_on).length > 0 ? (
+                              <>
+                                {JSON.parse(eventMember.depends_on).map(id => {
+                                  const dependentMember = members.find(m => m.id === id);
+                                  return dependentMember && (
+                                    <Box key={id}>
+                                      <Typography variant="body1">
+                                        {dependentMember.name}의 관리횟수: {dependentMember.remaining_sessions}회
+                                        <Chip 
+                                          label="의존 중" 
+                                          size="small" 
+                                          sx={{ 
+                                            ml: 1,
+                                            background: '#e3f2fd',
+                                            color: '#1565c0'
+                                          }}
+                                        />
+                                      </Typography>
+                                    </Box>
+                                  );
+                                })}
+                              </>
+                            ) : (
+                              <>
+                                <Typography variant="body1">{eventMember.remaining_sessions}회</Typography>
+                                {eventMember.remaining_sessions < 3 && (
+                                  <Tooltip title="관리횟수가 부족합니다. 충전이 필요합니다." arrow>
+                                    <Chip 
+                                      label="관리횟수 부족" 
+                                      color="warning" 
+                                      size="small"
+                                      sx={{ 
+                                        background: '#fff3e0',
+                                        color: '#e65100',
+                                        fontWeight: 600
+                                      }}
+                                    />
+                                  </Tooltip>
+                                )}
+                              </>
                             )}
                           </Box>
                         </Grid>
+                        {eventMember.shared_with && JSON.parse(eventMember.shared_with).length > 0 && (
+                          <Grid item xs={12}>
+                            <Typography variant="body2" color="text.secondary">공유 중인 회원</Typography>
+                            {JSON.parse(eventMember.shared_with).map(id => {
+                              const sharedMember = members.find(m => m.id === id);
+                              return sharedMember && (
+                                <Typography key={id} variant="body1">
+                                  {sharedMember.name}
+                                  <Chip 
+                                    label="공유 중" 
+                                    size="small" 
+                                    sx={{ 
+                                      ml: 1,
+                                      background: '#e8f5e9',
+                                      color: '#2e7d32'
+                                    }}
+                                  />
+                                </Typography>
+                              );
+                            })}
+                          </Grid>
+                        )}
                       </Grid>
                     </Paper>
                   </Box>
@@ -671,7 +835,7 @@ const CalendarTest = () => {
                       </Typography>
                     )}
 
-                    {selectedEvent && selectedEvent.extendedProps.status !== 'completed' && (
+                    {selectedEvent && selectedEvent.status !== 'completed' && (
                       <Box mt={3}>
                         <Typography variant="h6" gutterBottom>
                           새로운 세션 내역
@@ -710,7 +874,7 @@ const CalendarTest = () => {
             )}
           </DialogContent>
           <DialogActions sx={{ display: 'flex', flexDirection: 'row', justifyContent: 'flex-end', gap: 1, background: BROWN_BG }}>
-            {selectedEvent && selectedEvent.extendedProps.status !== 'completed' && (
+            {selectedEvent && selectedEvent.status !== 'completed' && (
               <Button 
                 onClick={handleCancelReservation} 
                 color="error"
