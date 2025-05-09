@@ -256,13 +256,33 @@ app.post('/members', (req, res) => {
 app.delete('/members/:id', (req, res) => {
   const { id } = req.params;
   try {
-    const result = db.prepare('DELETE FROM members WHERE id = ?').run(id);
-    
-    if (result.changes === 0) {
-      return res.status(404).json({ error: '회원을 찾을 수 없습니다.' });
+    // 트랜잭션 시작
+    db.prepare('BEGIN TRANSACTION').run();
+
+    try {
+      // 1. 관련된 세션 내역 삭제
+      db.prepare('DELETE FROM sessionHistory WHERE memberId = ?').run(id);
+      
+      // 2. 관련된 예약 삭제
+      db.prepare('DELETE FROM appointments WHERE memberId = ?').run(id);
+      
+      // 3. 회원 삭제
+      const result = db.prepare('DELETE FROM members WHERE id = ?').run(id);
+      
+      if (result.changes === 0) {
+        db.prepare('ROLLBACK').run();
+        return res.status(404).json({ error: '회원을 찾을 수 없습니다.' });
+      }
+      
+      // 트랜잭션 커밋
+      db.prepare('COMMIT').run();
+      
+      res.json({ message: '회원이 성공적으로 삭제되었습니다.' });
+    } catch (error) {
+      // 에러 발생 시 롤백
+      db.prepare('ROLLBACK').run();
+      throw error;
     }
-    
-    res.json({ message: '회원이 성공적으로 삭제되었습니다.' });
   } catch (error) {
     console.error('회원 삭제 실패:', error);
     res.status(500).json({ error: '회원 삭제에 실패했습니다.' });
