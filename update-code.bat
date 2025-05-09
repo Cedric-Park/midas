@@ -9,6 +9,17 @@ if errorlevel 1 (
 )
 
 echo.
+echo Backing up database...
+if exist midas.db (
+    copy midas.db midas.db.backup
+    if errorlevel 1 (
+        echo Error: Failed to backup database.
+        pause
+        exit /b 1
+    )
+)
+
+echo.
 echo Fetching latest code...
 git fetch origin
 if errorlevel 1 (
@@ -24,6 +35,18 @@ if errorlevel 1 (
     echo Error: Failed to update local code.
     pause
     exit /b 1
+)
+
+echo.
+echo Restoring database...
+if exist midas.db.backup (
+    copy midas.db.backup midas.db
+    if errorlevel 1 (
+        echo Error: Failed to restore database.
+        pause
+        exit /b 1
+    )
+    del midas.db.backup
 )
 
 echo.
