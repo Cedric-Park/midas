@@ -27,7 +27,7 @@ db.serialize(() => {
         phone TEXT NOT NULL,
         remaining_sessions INTEGER DEFAULT 0,
         notes TEXT,
-        join_date TEXT NOT NULL,
+        join_date TEXT NOT NULL DEFAULT (strftime('%Y-%m-%d', 'now')),
         last_visit TEXT,
         relationship TEXT,
         shared_with TEXT,
@@ -46,7 +46,9 @@ db.serialize(() => {
       INSERT OR IGNORE INTO members_new 
       SELECT 
         id, name, gender, birth_date, purpose, phone, 
-        remaining_sessions, notes, join_date, last_visit, relationship,
+        remaining_sessions, notes, 
+        COALESCE(join_date, strftime('%Y-%m-%d', 'now')), 
+        last_visit, relationship,
         shared_with, depends_on
       FROM members
     `, [], (err) => {
@@ -114,6 +116,54 @@ db.serialize(() => {
     });
 
     db.run('ALTER TABLE sessionHistory_new RENAME TO sessionHistory', [], (err) => {
+      if (err) {
+        console.error('테이블 이름 변경 실패:', err);
+        db.run('ROLLBACK');
+        process.exit(1);
+      }
+    });
+
+    // 1.7 appointments 테이블 구조 업데이트
+    db.run(`
+      CREATE TABLE IF NOT EXISTS appointments_new (
+        id TEXT PRIMARY KEY,
+        memberId TEXT NOT NULL,
+        start TEXT NOT NULL,
+        end TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'scheduled',
+        FOREIGN KEY (memberId) REFERENCES members(id)
+      )
+    `, [], (err) => {
+      if (err) {
+        console.error('appointments 테이블 생성 실패:', err);
+        db.run('ROLLBACK');
+        process.exit(1);
+      }
+    });
+
+    // 1.8 기존 예약 데이터 복사
+    db.run(`
+      INSERT OR IGNORE INTO appointments_new 
+      SELECT id, memberId, start, end, status
+      FROM appointments
+    `, [], (err) => {
+      if (err) {
+        console.error('appointments 데이터 복사 실패:', err);
+        db.run('ROLLBACK');
+        process.exit(1);
+      }
+    });
+
+    // 1.9 기존 테이블 삭제 및 새 테이블 이름 변경
+    db.run('DROP TABLE IF EXISTS appointments', [], (err) => {
+      if (err) {
+        console.error('기존 appointments 테이블 삭제 실패:', err);
+        db.run('ROLLBACK');
+        process.exit(1);
+      }
+    });
+
+    db.run('ALTER TABLE appointments_new RENAME TO appointments', [], (err) => {
       if (err) {
         console.error('테이블 이름 변경 실패:', err);
         db.run('ROLLBACK');
