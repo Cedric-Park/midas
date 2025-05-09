@@ -141,7 +141,8 @@ function App() {
       setOpenPatientDialog(true);
       try {
         const memberResponse = await axios.get(`http://localhost:3001/members/${newValue.id}`);
-        setSearchPatient(memberResponse.data);
+        const updatedMember = memberResponse.data;
+        setSearchPatient(updatedMember);
         
         const response = await axios.get(`http://localhost:3001/sessionHistory?memberId=${newValue.id}`);
         setSessionHistory(response.data);
@@ -163,11 +164,6 @@ function App() {
   };
 
   useEffect(() => {
-    refreshPatients();
-  }, []);
-
-  // 회원 추가/삭제 이벤트를 감지하는 이벤트 리스너
-  useEffect(() => {
     const handleMemberChange = () => {
       refreshPatients();
     };
@@ -176,6 +172,10 @@ function App() {
     return () => {
       window.removeEventListener('memberChange', handleMemberChange);
     };
+  }, []);
+
+  useEffect(() => {
+    refreshPatients();
   }, []);
 
   const handleTabChange = (event, newValue) => {
@@ -193,6 +193,7 @@ function App() {
         remaining_sessions: searchPatient.remaining_sessions + Number(chargeAmount)
       };
       await axios.patch(`http://localhost:3001/members/${searchPatient.id}`, {
+        ...searchPatient,
         remaining_sessions: updatedPatient.remaining_sessions
       });
       setSearchPatient(updatedPatient);
@@ -231,22 +232,91 @@ function App() {
     }
   };
 
+  const handleSharedMemberChange = (event, newValue) => {
+    if (newValue && !sharedMembers.find(m => m.id === newValue.id)) {
+      setSharedMembers([...sharedMembers, newValue]);
+    }
+    setSelectedSharedMember(null);
+  };
+
+  const handleRemoveSharedMember = (memberId) => {
+    setSharedMembers(sharedMembers.filter(m => m.id !== memberId));
+  };
+
   const handleSaveClick = async () => {
     try {
+      // 연결된 회원들의 shared_with 필드도 업데이트
+      const sharedIds = sharedMembers.map(m => m.id);
+      
+      // 현재 회원의 shared_with 업데이트
       await axios.patch(`http://localhost:3001/members/${searchPatient.id}`, {
-        notes: editedPatient.notes,
-        phone: editedPatient.phone,
-        birth_date: editedPatient.birth_date,
-        purpose: editedPatient.purpose,
-        shared_with: JSON.stringify(sharedMembers.map(m => m.id))
+        ...editedPatient,
+        shared_with: JSON.stringify(sharedIds)
       });
-      setSearchPatient(editedPatient);
+
+      // 연결된 회원들의 shared_with 업데이트
+      for (const memberId of sharedIds) {
+        const member = patients.find(p => p.id === memberId);
+        if (member) {
+          const currentSharedWith = member.shared_with ? JSON.parse(member.shared_with) : [];
+          if (!currentSharedWith.includes(searchPatient.id)) {
+            await axios.patch(`http://localhost:3001/members/${memberId}`, {
+              shared_with: JSON.stringify([...currentSharedWith, searchPatient.id])
+            });
+          }
+        }
+      }
+
+      // 이전에 연결되어 있던 회원들의 shared_with에서 현재 회원 제거
+      const previousSharedWith = searchPatient.shared_with ? JSON.parse(searchPatient.shared_with) : [];
+      const removedMembers = previousSharedWith.filter(id => !sharedIds.includes(id));
+      
+      for (const memberId of removedMembers) {
+        const member = patients.find(p => p.id === memberId);
+        if (member) {
+          const currentSharedWith = JSON.parse(member.shared_with);
+          await axios.patch(`http://localhost:3001/members/${memberId}`, {
+            shared_with: JSON.stringify(currentSharedWith.filter(id => id !== searchPatient.id))
+          });
+        }
+      }
+
+      // 회원 정보 업데이트 후 서버에서 최신 데이터를 다시 가져옴
+      const updatedMemberResponse = await axios.get(`http://localhost:3001/members/${searchPatient.id}`);
+      setSearchPatient(updatedMemberResponse.data);
+      
+      // 전체 회원 목록도 새로고침
+      const allMembersResponse = await axios.get('http://localhost:3001/members');
+      setPatients(allMembersResponse.data);
+      
       setEditMode(false);
+      
+      // 회원 변경 이벤트 발생
+      window.dispatchEvent(new Event('memberChange'));
     } catch (error) {
       console.error('회원 정보 수정에 실패했습니다:', error);
       alert('회원 정보 수정에 실패했습니다.');
     }
   };
+
+  // 회원 정보 변경 이벤트 리스너 추가
+  useEffect(() => {
+    const handleMemberChange = async () => {
+      if (searchPatient) {
+        try {
+          const memberResponse = await axios.get(`http://localhost:3001/members/${searchPatient.id}`);
+          setSearchPatient(memberResponse.data);
+        } catch (error) {
+          console.error('회원 정보를 불러오는데 실패했습니다:', error);
+        }
+      }
+    };
+
+    window.addEventListener('memberChange', handleMemberChange);
+    return () => {
+      window.removeEventListener('memberChange', handleMemberChange);
+    };
+  }, [searchPatient]);
 
   const handleCancelEdit = () => {
     setEditMode(false);
@@ -305,16 +375,28 @@ function App() {
     }
   };
 
-  const handleSharedMemberChange = (event, newValue) => {
-    if (newValue && !sharedMembers.find(m => m.id === newValue.id)) {
-      setSharedMembers([...sharedMembers, newValue]);
-    }
-    setSelectedSharedMember(null);
-  };
-
-  const handleRemoveSharedMember = (memberId) => {
-    setSharedMembers(sharedMembers.filter(m => m.id !== memberId));
-  };
+  const patchNotes = [
+    {
+      date: '2024-03-21',
+      title: '세션 완료 기능 개선 및 버그 수정',
+      content: [
+        {
+          type: '기능 개선',
+          items: [
+            '세션 완료 시 공유 회원의 관리 내역에 관리 횟수 변경 정보 추가 (형식: "ㅇㅇㅇ님이 관리 횟수 1을 사용하셨습니다. (10회 → 9회)")',
+            '세션 내역에 예약된 시간 기록 (기존: 세션 완료 버튼을 누른 시간이 기록됨, 변경: 예약된 시간대로 기록되도록 수정)'
+          ]
+        },
+        {
+          type: '버그 수정',
+          items: [
+            '예약 취소 시 발생하던 status 속성 관련 오류 수정',
+            '세션 완료 후 공유 회원의 관리 횟수 실시간 갱신 문제 해결'
+          ]
+        }
+      ]
+    },
+  ];
 
   return (
     <ThemeProvider theme={theme}>
@@ -387,7 +469,7 @@ function App() {
               {searchPatient && (
                 <Box sx={{ mt: 2, borderRadius: 6, background: '#fff', p: 2 }}>
                   <Tabs value={activeTab} onChange={handleTabChange} sx={{ mb: 2, background: BROWN_BG, borderRadius: 2 }} textColor="secondary" indicatorColor="secondary">
-                    <Tab label="회원 정보" />
+                    <Tab label="회원 정보1" />
                     <Tab label="관리 내역" />
                   </Tabs>
 
@@ -485,83 +567,127 @@ function App() {
                           <Grid item xs={12}>
                             <Typography variant="body2" color="text.secondary">관리 횟수 연결</Typography>
                             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                              <Autocomplete
-                                options={patients.filter(p => p.id !== searchPatient.id && !sharedMembers.find(m => m.id === p.id))}
-                                getOptionLabel={(option) => `${option.name} (${option.phone})`}
-                                value={selectedSharedMember}
-                                onChange={handleSharedMemberChange}
-                                renderInput={(params) => (
-                                  <TextField
-                                    {...params}
-                                    size="small"
-                                    placeholder="회원 검색"
+                              {editMode ? (
+                                <>
+                                  <Autocomplete
+                                    options={patients.filter(p => p.id !== searchPatient.id && !sharedMembers.find(m => m.id === p.id))}
+                                    getOptionLabel={(option) => `${option.name} (${option.phone})`}
+                                    value={selectedSharedMember}
+                                    onChange={handleSharedMemberChange}
+                                    renderInput={(params) => (
+                                      <TextField
+                                        {...params}
+                                        size="small"
+                                        placeholder="회원 검색"
+                                      />
+                                    )}
                                   />
-                                )}
-                              />
-                              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                                {sharedMembers.map((member) => (
-                                  <Chip
-                                    key={member.id}
-                                    label={`${member.name} (${member.phone})`}
-                                    onDelete={() => handleRemoveSharedMember(member.id)}
-                                    sx={{
-                                      backgroundColor: '#f6e7d7',
-                                      '& .MuiChip-deleteIcon': {
-                                        color: '#3C1E1E',
-                                        '&:hover': {
-                                          color: '#7B5E57'
-                                        }
-                                      }
-                                    }}
-                                  />
-                                ))}
-                              </Box>
+                                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                                    {sharedMembers.map((member) => {
+                                      const isShared = searchPatient.shared_with && JSON.parse(searchPatient.shared_with).includes(member.id);
+                                      const isDependent = member.shared_with && JSON.parse(member.shared_with).includes(searchPatient.id);
+                                      
+                                      return (
+                                        <Chip
+                                          key={member.id}
+                                          label={`${member.name}${isShared ? '[공유 중]' : isDependent ? '[의존 중]' : ''}`}
+                                          onDelete={() => handleRemoveSharedMember(member.id)}
+                                          sx={{
+                                            backgroundColor: isShared ? '#e8f5e9' : '#e3f2fd',
+                                            color: isShared ? '#2e7d32' : '#1565c0',
+                                            '& .MuiChip-deleteIcon': {
+                                              color: isShared ? '#2e7d32' : '#1565c0',
+                                              '&:hover': {
+                                                color: isShared ? '#1b5e20' : '#0d47a1'
+                                              }
+                                            }
+                                          }}
+                                        />
+                                      );
+                                    })}
+                                  </Box>
+                                </>
+                              ) : (
+                                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                                  {patients.filter(p => {
+                                    // 현재 회원의 shared_with에 있는 회원들
+                                    const isInSharedWith = searchPatient.shared_with && JSON.parse(searchPatient.shared_with).includes(p.id);
+                                    // 현재 회원이 다른 회원의 shared_with에 있는 경우
+                                    const isDependentOn = p.shared_with && JSON.parse(p.shared_with).includes(searchPatient.id);
+                                    return isInSharedWith || isDependentOn;
+                                  }).map((member) => {
+                                    const isShared = searchPatient.shared_with && JSON.parse(searchPatient.shared_with).includes(member.id);
+                                    const isDependent = member.shared_with && JSON.parse(member.shared_with).includes(searchPatient.id);
+                                    
+                                    return (
+                                      <Chip
+                                        key={member.id}
+                                        label={`${member.name}${isShared ? '[공유 중]' : isDependent ? '[의존 중]' : ''}`}
+                                        sx={{
+                                          backgroundColor: isShared ? '#e8f5e9' : '#e3f2fd',
+                                          color: isShared ? '#2e7d32' : '#1565c0'
+                                        }}
+                                      />
+                                    );
+                                  })}
+                                </Box>
+                              )}
                             </Box>
                           </Grid>
                           <Grid item xs={12}>
                             <Typography variant="body2" color="text.secondary">남은 관리횟수</Typography>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                              <Typography variant="body1">{searchPatient.remaining_sessions}회</Typography>
-                              {searchPatient.shared_with && JSON.parse(searchPatient.shared_with).length > 0 && (
-                                <Chip
-                                  label={`${patients.find(p => p.id === JSON.parse(searchPatient.shared_with)[0])?.name}님과 연결됨`}
-                                  size="small"
-                                  sx={{
-                                    backgroundColor: '#f6e7d7',
-                                    color: '#3C1E1E'
-                                  }}
-                                />
-                              )}
-                              {searchPatient.remaining_sessions < 3 && (
-                                <Tooltip title="관리횟수가 부족합니다. 충전이 필요합니다." arrow>
-                                  <Chip 
-                                    label="관리횟수 부족" 
-                                    color="warning" 
-                                    size="small"
-                                    sx={{ 
-                                      background: '#fff3e0',
-                                      color: '#e65100',
-                                      fontWeight: 600
-                                    }}
-                                  />
-                                </Tooltip>
-                              )}
-                              <Button 
-                                variant="outlined" 
-                                size="small" 
-                                onClick={() => setOpenChargeDialog(true)}
-                                sx={{ 
-                                  background: BROWN_BG, 
-                                  color: BROWN_TEXT, 
-                                  borderColor: BROWN_TEXT,
-                                  '&:hover': { 
-                                    background: '#e0cfc0',
-                                    borderColor: BROWN_TEXT
-                                  } 
-                                }}
-                              >
-                                충전
-                              </Button>
+                              {(() => {
+                                // 의존 중인 대상 찾기
+                                const dependentMember = patients.find(p => 
+                                  p.shared_with && JSON.parse(p.shared_with).includes(searchPatient.id)
+                                );
+                                
+                                // 의존 중인 대상이 있으면 그 대상의 횟수를, 없으면 자신의 횟수를 표시
+                                const remainingSessions = dependentMember ? dependentMember.remaining_sessions : searchPatient.remaining_sessions;
+                                const isDependent = !!dependentMember;
+                                
+                                return (
+                                  <>
+                                    <Typography variant="body1">
+                                      {remainingSessions}회
+                                      {isDependent && ` (${dependentMember.name}님의 횟수)`}
+                                    </Typography>
+                                    {remainingSessions < 3 && (
+                                      <Tooltip title="관리횟수가 부족합니다. 충전이 필요합니다." arrow>
+                                        <Chip 
+                                          label="관리횟수 부족" 
+                                          color="warning" 
+                                          size="small"
+                                          sx={{ 
+                                            background: '#fff3e0',
+                                            color: '#e65100',
+                                            fontWeight: 600
+                                          }}
+                                        />
+                                      </Tooltip>
+                                    )}
+                                    {!isDependent && (
+                                      <Button 
+                                        variant="outlined" 
+                                        size="small" 
+                                        onClick={() => setOpenChargeDialog(true)}
+                                        sx={{ 
+                                          background: BROWN_BG, 
+                                          color: BROWN_TEXT, 
+                                          borderColor: BROWN_TEXT,
+                                          '&:hover': { 
+                                            background: '#e0cfc0',
+                                            borderColor: BROWN_TEXT
+                                          } 
+                                        }}
+                                      >
+                                        충전
+                                      </Button>
+                                    )}
+                                  </>
+                                );
+                              })()}
                             </Box>
                           </Grid>
                           <Grid item xs={12}>
