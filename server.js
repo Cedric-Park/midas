@@ -235,8 +235,8 @@ app.post('/members', (req, res) => {
     
     const stmt = db.prepare(`
       INSERT INTO members (
-        id, name, gender, birth_date, purpose, phone, relationship, shared_with, remaining_sessions
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        id, name, gender, birth_date, purpose, phone, relationship, shared_with, remaining_sessions, join_date
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%d', 'now'))
     `);
     
     const result = stmt.run(
