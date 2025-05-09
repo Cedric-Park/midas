@@ -4,6 +4,15 @@ import { Box, Typography, Paper, Container } from '@mui/material';
 const PatchNotes = () => {
   const versions = [
     {
+      version: 'v1.0.1',
+      date: '2024-03-21',
+      changes: [
+        '✨ 패치 노트 페이지 추가',
+        '- 방문 랭킹 아이콘에 패치 노트 페이지 링크 연결',
+        '- 버전별 변경사항 기록 기능 구현'
+      ]
+    },
+    {
       version: 'v1.0.0',
       date: '2024-03-21',
       changes: [
