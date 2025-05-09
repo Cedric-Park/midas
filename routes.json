@@ -1,0 +1,5 @@
+{
+  "/appointments/:id": "/appointments/:id",
+  "/members/:id": "/members/:id",
+  "/treatmentHistory": "/treatmentHistory"
+} 

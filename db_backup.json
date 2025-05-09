@@ -1,0 +1,351 @@
+{
+  "patients": [
+    {
+      "id": "1",
+      "name": "김민수",
+      "gender": "남",
+      "birthDate": "1990-05-15",
+      "purpose": "통증",
+      "phone": "010-1234-5678",
+      "joinDate": "2023-01-10",
+      "lastVisit": "2024-03-15",
+      "relationship": "",
+      "remainCount": 8
+    },
+    {
+      "id": "2",
+      "name": "이지은",
+      "gender": "여",
+      "birthDate": "1988-11-22",
+      "purpose": "다이어트",
+      "phone": "010-2345-6789",
+      "joinDate": "2023-02-20",
+      "lastVisit": "2024-03-20",
+      "relationship": "",
+      "remainCount": 12
+    },
+    {
+      "id": "3",
+      "name": "박준호",
+      "gender": "남",
+      "birthDate": "1995-03-08",
+      "purpose": "통증",
+      "phone": "010-3456-7890",
+      "joinDate": "2023-03-15",
+      "lastVisit": "2025-05-01",
+      "relationship": "",
+      "remainCount": 5
+    },
+    {
+      "id": "4",
+      "name": "최수진",
+      "gender": "여",
+      "birthDate": "1992-07-30",
+      "purpose": "다이어트",
+      "phone": "010-4567-8901",
+      "joinDate": "2023-04-05",
+      "lastVisit": "2024-03-22",
+      "relationship": "",
+      "remainCount": 8
+    },
+    {
+      "id": "5",
+      "name": "정민우",
+      "gender": "남",
+      "birthDate": "1987-09-12",
+      "purpose": "통증",
+      "phone": "010-5678-9012",
+      "joinDate": "2023-05-10",
+      "lastVisit": "2025-05-01",
+      "relationship": "",
+      "remainCount": 3
+    },
+    {
+      "id": "6",
+      "name": "한지원",
+      "gender": "여",
+      "birthDate": "1993-12-25",
+      "purpose": "다이어트",
+      "phone": "010-6789-0123",
+      "joinDate": "2023-06-15",
+      "lastVisit": "2024-03-28",
+      "relationship": "",
+      "remainCount": 11
+    },
+    {
+      "id": "7",
+      "name": "서동현",
+      "gender": "남",
+      "birthDate": "1991-04-18",
+      "purpose": "통증",
+      "phone": "010-7890-1234",
+      "joinDate": "2023-07-20",
+      "lastVisit": "2024-03-29",
+      "relationship": "",
+      "remainCount": 9
+    },
+    {
+      "id": "8",
+      "name": "강민지",
+      "gender": "여",
+      "birthDate": "1994-08-05",
+      "purpose": "다이어트",
+      "phone": "010-8901-2345",
+      "joinDate": "2023-08-25",
+      "lastVisit": "2025-05-01",
+      "relationship": "",
+      "remainCount": 6
+    },
+    {
+      "id": "9",
+      "name": "임태현",
+      "gender": "남",
+      "birthDate": "1989-02-14",
+      "purpose": "통증",
+      "phone": "010-9012-3456",
+      "joinDate": "2023-09-30",
+      "lastVisit": "2024-03-16",
+      "relationship": "",
+      "remainCount": 2
+    },
+    {
+      "id": "10",
+      "name": "장유진",
+      "gender": "여",
+      "birthDate": "1996-10-08",
+      "purpose": "다이어트",
+      "phone": "010-0123-4567",
+      "joinDate": "2023-10-15",
+      "lastVisit": "2024-03-24",
+      "relationship": "",
+      "remainCount": 4
+    },
+    {
+      "name": "박선영",
+      "gender": "여",
+      "birthDate": "1984-06-29",
+      "purpose": "다이어트",
+      "phone": "010-1234-1234",
+      "remainCount": 21,
+      "relationship": "종철이 동생",
+      "joinDate": "2025-05-01",
+      "lastVisit": "2025-05-01",
+      "id": "Rg8GLKB"
+    },
+    {
+      "name": "개똥이",
+      "gender": "남",
+      "birthDate": "2000-01-05",
+      "purpose": "통증",
+      "phone": "0101110110",
+      "remainCount": 12,
+      "relationship": "dd",
+      "joinDate": "2025-05-01",
+      "lastVisit": "2025-05-01",
+      "id": "5WaQ4Xy"
+    }
+  ],
+  "appointments": [
+    {
+      "id": "a1",
+      "patientId": "1",
+      "start": "2025-05-01T09:00:00",
+      "end": "2025-05-01T09:30:00",
+      "status": "completed"
+    },
+    {
+      "id": "a2",
+      "patientId": "2",
+      "start": "2025-05-01T10:00:00",
+      "end": "2025-05-01T10:30:00",
+      "status": "completed"
+    },
+    {
+      "patientId": "3",
+      "status": "completed",
+      "start": "2025-05-01T11:00:00+09:00",
+      "end": "2025-05-01T11:30:00+09:00",
+      "id": "a3"
+    },
+    {
+      "id": "a4",
+      "patientId": "4",
+      "start": "2025-05-02T09:00:00",
+      "end": "2025-05-02T09:30:00",
+      "status": "completed"
+    },
+    {
+      "patientId": "5",
+      "status": "completed",
+      "start": "2025-05-02T10:00:00+09:00",
+      "end": "2025-05-02T10:30:00+09:00",
+      "id": "a5"
+    },
+    {
+      "id": "a6",
+      "patientId": "6",
+      "start": "2025-05-03T09:00:00",
+      "end": "2025-05-03T09:30:00",
+      "status": "completed"
+    },
+    {
+      "id": "a7",
+      "patientId": "7",
+      "start": "2025-05-03T10:00:00",
+      "end": "2025-05-03T10:30:00",
+      "status": "scheduled"
+    },
+    {
+      "id": "a8",
+      "patientId": "8",
+      "start": "2025-05-04T09:00:00",
+      "end": "2025-05-04T09:30:00",
+      "status": "completed"
+    },
+    {
+      "id": "a9",
+      "patientId": "9",
+      "start": "2025-05-04T10:00:00",
+      "end": "2025-05-04T10:30:00",
+      "status": "scheduled"
+    },
+    {
+      "id": "a10",
+      "patientId": "10",
+      "start": "2025-05-05T09:00:00",
+      "end": "2025-05-05T09:30:00",
+      "status": "completed"
+    },
+    {
+      "patientId": "Rg8GLKB",
+      "status": "completed",
+      "id": "kYMV-Gu"
+    },
+    {
+      "patientId": "5WaQ4Xy",
+      "status": "completed",
+      "id": "8bvMXnR"
+    },
+    {
+      "id": "c100",
+      "patientId": 4,
+      "start": "2025-05-06T10:00:00",
+      "end": "2025-05-06T10:30:00",
+      "status": "completed"
+    },
+    {
+      "id": "c101",
+      "patientId": 5,
+      "start": "2025-05-07T11:00:00",
+      "end": "2025-05-07T11:30:00",
+      "status": "completed"
+    },
+    {
+      "patientId": "Rg8GLKB",
+      "status": "completed",
+      "start": "2025-05-02T11:00:00+09:00",
+      "end": "2025-05-02T11:30:00+09:00",
+      "id": "yqK6IaY"
+    },
+    {
+      "patientId": "3",
+      "start": "2025-05-02T09:30:00+09:00",
+      "end": "2025-05-02T10:00:00+09:00",
+      "status": "scheduled",
+      "id": "v2t2E7q"
+    },
+    {
+      "patientId": "8",
+      "status": "completed",
+      "start": "2025-05-02T11:30:00+09:00",
+      "end": "2025-05-02T12:00:00+09:00",
+      "id": "VpJoO8F"
+    }
+  ],
+  "treatmentHistory": [
+    {
+      "id": "t1",
+      "patientId": "1",
+      "appointmentId": "a1",
+      "date": "2025-05-01",
+      "note": "허리 통증 치료 및 상담."
+    },
+    {
+      "id": "t2",
+      "patientId": "2",
+      "appointmentId": "a2",
+      "date": "2025-05-01",
+      "note": "다이어트 상담 및 식단 지도."
+    },
+    {
+      "id": "t3",
+      "patientId": "4",
+      "appointmentId": "a4",
+      "date": "2025-05-02",
+      "note": "체중 관리 및 운동 지도."
+    },
+    {
+      "id": "t4",
+      "patientId": "6",
+      "appointmentId": "a6",
+      "date": "2025-05-03",
+      "note": "허리 통증 치료."
+    },
+    {
+      "id": "t5",
+      "patientId": "8",
+      "appointmentId": "a8",
+      "date": "2025-05-04",
+      "note": "다이어트 경과 체크."
+    },
+    {
+      "id": "t6",
+      "patientId": "10",
+      "appointmentId": "a10",
+      "date": "2025-05-05",
+      "note": "다이어트 상담."
+    },
+    {
+      "patientId": "Rg8GLKB",
+      "appointmentId": "kYMV-Gu",
+      "date": "2025-05-01",
+      "note": "ㅇㅇ",
+      "id": "6fkqWiV"
+    },
+    {
+      "patientId": "5WaQ4Xy",
+      "appointmentId": "8bvMXnR",
+      "date": "2025-05-01",
+      "note": "ㅇㅇㅇ",
+      "id": "kT0f5Zg"
+    },
+    {
+      "patientId": "5",
+      "appointmentId": "a5",
+      "date": "2025-05-01",
+      "note": "dd",
+      "id": "vImGA1D"
+    },
+    {
+      "patientId": "3",
+      "appointmentId": "a3",
+      "date": "2025-05-01",
+      "note": "asdfaf",
+      "id": "FcZ0uzn"
+    },
+    {
+      "patientId": "Rg8GLKB",
+      "appointmentId": "yqK6IaY",
+      "date": "2025-05-01",
+      "note": "zzzzz",
+      "id": "BiXuy_J"
+    },
+    {
+      "patientId": "8",
+      "appointmentId": "VpJoO8F",
+      "date": "2025-05-01",
+      "note": "ㅋㅋㅋ",
+      "id": "1NfhIb4"
+    }
+  ]
+}

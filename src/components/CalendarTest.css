@@ -1,0 +1,194 @@
+/* MIDAS 스타일 예약 슬롯 */
+.fc-event, .fc-event-main, .fc-v-event, .midas-event, .midas-event-completed {
+  height: 100% !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  line-height: normal !important;
+  padding: 5px 8px 5px 2px !important;
+  font-size: 15px !important;
+  font-weight: 600 !important;
+  box-sizing: border-box !important;
+  overflow: hidden !important;
+  white-space: nowrap !important;
+  text-overflow: ellipsis !important;
+  display: flex !important;
+  align-items: center !important;
+}
+
+/* 월간 뷰(일정이 여러 줄로 쌓이는 뷰)에서만 더보기 정상 동작하도록 강제 스타일 해제 */
+.fc-daygrid-event {
+  overflow: visible !important;
+  white-space: normal !important;
+  text-overflow: initial !important;
+  display: block !important;
+  align-items: initial !important;
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  line-height: normal !important;
+}
+
+.midas-event {
+  background: #f6e7d7 !important;
+  border: none !important;
+  border-color: transparent !important;
+  border-left: 2px solid #a67c52 !important;
+  color: #3C1E1E !important;
+  padding: 0 8px 0 2px !important;
+}
+
+/* 진찰 완료된 슬롯 스타일 */
+.midas-event-completed,
+.midas-event-completed.fc-event,
+.midas-event-completed.fc-event-main,
+.midas-event-completed.fc-v-event {
+  background: #bdbdbd !important;
+  border: none !important;
+  border-color: transparent !important;
+  border-left: 2px solid #757575 !important;
+  color: #212121 !important;
+  min-height: 32px !important;
+  max-height: 32px !important;
+  line-height: 32px !important;
+  padding: 0 8px 0 2px !important;
+  font-size: 15px !important;
+  font-weight: 600 !important;
+  box-sizing: border-box !important;
+  overflow: hidden !important;
+  white-space: nowrap !important;
+  text-overflow: ellipsis !important;
+  display: flex !important;
+  align-items: center !important;
+  padding-left: 0 !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  line-height: normal !important;
+}
+
+div[style*="border-left"] {
+  border-left: none !important;
+}
+
+.midas-paper {
+  border-radius: 6px !important;
+}
+
+.MuiTabs-root {
+  border-radius: 2px !important;
+}
+
+/* 구글 캘린더 스타일 */
+.fc-timegrid-slot-label {
+  font-size: 12px !important;
+  padding: 0 4px !important;
+  color: #70757a !important;
+}
+
+.fc-timegrid-slot {
+  height: 28px !important;
+  min-height: 28px !important;
+  max-height: 28px !important;
+}
+
+.fc-daygrid-day-top {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  padding: 4px !important;
+}
+
+.fc-daygrid-day-number {
+  font-size: 12px !important;
+  color: #70757a !important;
+  padding: 4px !important;
+}
+
+.fc-col-header-cell {
+  padding: 8px !important;
+}
+
+.fc-col-header-cell-cushion {
+  font-size: 12px !important;
+  color: #70757a !important;
+  text-decoration: none !important;
+}
+
+.fc-daygrid-day-events {
+  margin-top: 4px !important;
+}
+
+.fc-day-today {
+  background-color: #e8f0fe !important;
+}
+
+.fc-day-today .fc-daygrid-day-number {
+  color: #1a73e8 !important;
+  font-weight: bold !important;
+}
+
+.fc-day-today .fc-col-header-cell-cushion {
+  color: #1a73e8 !important;
+  font-weight: bold !important;
+}
+
+.fc-day-past {
+  background-color: #f8f9fa !important;
+}
+
+.fc-day-future {
+  background-color: #ffffff !important;
+}
+
+.fc-day-other {
+  background-color: #f8f9fa !important;
+}
+
+.fc-custom-ampm {
+  color: #1976d2;
+  font-weight: bold;
+  font-size: 14px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  margin-right: 4px;
+  display: inline-block;
+  min-width: 28px;
+  text-align: center;
+  letter-spacing: 1px;
+  border: 1.5px solid #1976d2;
+  background: #fff;
+}
+.fc-custom-am {
+  background: #1976d2; /* 파란색 (AM) */
+}
+.fc-custom-hour {
+  color: #222;
+  font-size: 15px;
+  font-weight: bold;
+  margin-left: 0;
+}
+
+.fc-event-title, .fc-event-main-frame {
+  padding-top: 5px !important;
+  padding-bottom: 5px !important;
+  display: block !important;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.fc-event-main,
+.fc-event-title,
+.fc-event-title-container,
+.fc-event-main-frame,
+.fc-event span,
+.fc-event div {
+  padding-top: 5px !important;
+  padding-bottom: 5px !important;
+  box-sizing: border-box !important;
+}
+
+/* 월간 뷰에서 요일과 일자 숨기기 */
+
+.fc-daygrid-day-events {
+  margin-top: 0 !important;
+} 
