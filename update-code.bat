@@ -1,0 +1,42 @@
+@echo off
+echo Checking remote connection...
+git remote -v
+if errorlevel 1 (
+    echo Error: No remote repository found.
+    echo Please run connect-github.bat first.
+    pause
+    exit /b 1
+)
+
+echo.
+echo Fetching latest code...
+git fetch origin
+if errorlevel 1 (
+    echo Error: Failed to fetch from remote repository.
+    pause
+    exit /b 1
+)
+
+echo.
+echo Updating local code to latest version...
+git reset --hard origin/main
+if errorlevel 1 (
+    echo Error: Failed to update local code.
+    pause
+    exit /b 1
+)
+
+echo.
+echo Updating npm packages...
+npm install
+if errorlevel 1 (
+    echo Error: Failed to update npm packages.
+    pause
+    exit /b 1
+)
+
+echo.
+echo Update completed successfully.
+echo Please restart your server.
+echo.
+pause 
