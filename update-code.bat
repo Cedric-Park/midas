@@ -30,7 +30,11 @@ if errorlevel 1 (
 
 echo.
 echo Updating local code to latest version...
-git reset --hard origin/main
+git rm --cached midas.db
+git rm --cached midas.db-shm
+git rm --cached midas.db-wal
+git clean -f -d
+git checkout -f origin/main
 if errorlevel 1 (
     echo Error: Failed to update local code.
     pause
