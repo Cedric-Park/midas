@@ -8,6 +8,20 @@ let db;
 try {
   db = new sqlite3('midas.db');
   console.log('데이터베이스 연결 성공');
+  db.run(`CREATE TABLE IF NOT EXISTS members (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    gender TEXT NOT NULL,
+    birth_date TEXT NOT NULL,
+    phone TEXT NOT NULL,
+    join_date TEXT NOT NULL,
+    last_visit TEXT,
+    remaining_sessions INTEGER DEFAULT 0,
+    purpose TEXT,
+    relationship TEXT,
+    notes TEXT,
+    shared_with TEXT
+  )`);
 } catch (error) {
   console.error('데이터베이스 연결 실패:', error);
   process.exit(1);
@@ -278,6 +292,80 @@ app.patch('/sessionHistory/:id', (req, res) => {
   } catch (error) {
     console.error('세션 내역 수정 실패:', error);
     res.status(500).json({ error: '세션 내역 수정에 실패했습니다.' });
+  }
+});
+
+// 세션 완료 API
+app.post('/completeSession', async (req, res) => {
+  const { memberId, date, note } = req.body;
+  
+  try {
+    // 회원 정보 조회
+    const member = await new Promise((resolve, reject) => {
+      db.get('SELECT * FROM members WHERE id = ?', [memberId], (err, row) => {
+        if (err) reject(err);
+        resolve(row);
+      });
+    });
+
+    // 연결된 회원이 있는지 확인
+    let targetMemberId = memberId;
+    if (member.shared_with) {
+      const sharedIds = JSON.parse(member.shared_with);
+      if (sharedIds.length > 0) {
+        targetMemberId = sharedIds[0]; // 첫 번째 연결된 회원의 관리 횟수 사용
+      }
+    }
+
+    // 연결된 회원의 관리 횟수 차감
+    await new Promise((resolve, reject) => {
+      db.run(
+        'UPDATE members SET remaining_sessions = remaining_sessions - 1 WHERE id = ?',
+        [targetMemberId],
+        (err) => {
+          if (err) reject(err);
+          resolve();
+        }
+      );
+    });
+
+    // 세션 기록 추가
+    await new Promise((resolve, reject) => {
+      db.run(
+        'INSERT INTO sessionHistory (memberId, date, note) VALUES (?, ?, ?)',
+        [memberId, date, note],
+        (err) => {
+          if (err) reject(err);
+          resolve();
+        }
+      );
+    });
+
+    // 연결된 회원의 세션 기록에도 추가
+    if (targetMemberId !== memberId) {
+      const targetMember = await new Promise((resolve, reject) => {
+        db.get('SELECT name FROM members WHERE id = ?', [targetMemberId], (err, row) => {
+          if (err) reject(err);
+          resolve(row);
+        });
+      });
+
+      await new Promise((resolve, reject) => {
+        db.run(
+          'INSERT INTO sessionHistory (memberId, date, note) VALUES (?, ?, ?)',
+          [targetMemberId, date, `${member.name}님이 관리 횟수 1회 사용`],
+          (err) => {
+            if (err) reject(err);
+            resolve();
+          }
+        );
+      });
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('세션 완료 처리 중 오류 발생:', error);
+    res.status(500).json({ error: '세션 완료 처리 중 오류가 발생했습니다.' });
   }
 });
 

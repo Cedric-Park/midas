@@ -132,6 +132,8 @@ function App() {
   const [editSessionId, setEditSessionId] = useState(null);
   const [editSessionDate, setEditSessionDate] = useState('');
   const [editSessionNote, setEditSessionNote] = useState('');
+  const [sharedMembers, setSharedMembers] = useState([]);
+  const [selectedSharedMember, setSelectedSharedMember] = useState(null);
 
   const handlePatientSelect = async (event, newValue) => {
     setSearchPatient(newValue);
@@ -220,6 +222,13 @@ function App() {
   const handleEditClick = () => {
     setEditMode(true);
     setEditedPatient({ ...searchPatient });
+    if (searchPatient.shared_with) {
+      const sharedIds = JSON.parse(searchPatient.shared_with);
+      const sharedMembersList = patients.filter(p => sharedIds.includes(p.id));
+      setSharedMembers(sharedMembersList);
+    } else {
+      setSharedMembers([]);
+    }
   };
 
   const handleSaveClick = async () => {
@@ -228,7 +237,8 @@ function App() {
         notes: editedPatient.notes,
         phone: editedPatient.phone,
         birth_date: editedPatient.birth_date,
-        purpose: editedPatient.purpose
+        purpose: editedPatient.purpose,
+        shared_with: JSON.stringify(sharedMembers.map(m => m.id))
       });
       setSearchPatient(editedPatient);
       setEditMode(false);
@@ -293,6 +303,17 @@ function App() {
       });
       alert('세션 수정에 실패했습니다.');
     }
+  };
+
+  const handleSharedMemberChange = (event, newValue) => {
+    if (newValue && !sharedMembers.find(m => m.id === newValue.id)) {
+      setSharedMembers([...sharedMembers, newValue]);
+    }
+    setSelectedSharedMember(null);
+  };
+
+  const handleRemoveSharedMember = (memberId) => {
+    setSharedMembers(sharedMembers.filter(m => m.id !== memberId));
   };
 
   return (
@@ -462,9 +483,55 @@ function App() {
                             )}
                           </Grid>
                           <Grid item xs={12}>
+                            <Typography variant="body2" color="text.secondary">관리 횟수 연결</Typography>
+                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                              <Autocomplete
+                                options={patients.filter(p => p.id !== searchPatient.id && !sharedMembers.find(m => m.id === p.id))}
+                                getOptionLabel={(option) => `${option.name} (${option.phone})`}
+                                value={selectedSharedMember}
+                                onChange={handleSharedMemberChange}
+                                renderInput={(params) => (
+                                  <TextField
+                                    {...params}
+                                    size="small"
+                                    placeholder="회원 검색"
+                                  />
+                                )}
+                              />
+                              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                                {sharedMembers.map((member) => (
+                                  <Chip
+                                    key={member.id}
+                                    label={`${member.name} (${member.phone})`}
+                                    onDelete={() => handleRemoveSharedMember(member.id)}
+                                    sx={{
+                                      backgroundColor: '#f6e7d7',
+                                      '& .MuiChip-deleteIcon': {
+                                        color: '#3C1E1E',
+                                        '&:hover': {
+                                          color: '#7B5E57'
+                                        }
+                                      }
+                                    }}
+                                  />
+                                ))}
+                              </Box>
+                            </Box>
+                          </Grid>
+                          <Grid item xs={12}>
                             <Typography variant="body2" color="text.secondary">남은 관리횟수</Typography>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                               <Typography variant="body1">{searchPatient.remaining_sessions}회</Typography>
+                              {searchPatient.shared_with && JSON.parse(searchPatient.shared_with).length > 0 && (
+                                <Chip
+                                  label={`${patients.find(p => p.id === JSON.parse(searchPatient.shared_with)[0])?.name}님과 연결됨`}
+                                  size="small"
+                                  sx={{
+                                    backgroundColor: '#f6e7d7',
+                                    color: '#3C1E1E'
+                                  }}
+                                />
+                              )}
                               {searchPatient.remaining_sessions < 3 && (
                                 <Tooltip title="관리횟수가 부족합니다. 충전이 필요합니다." arrow>
                                   <Chip 

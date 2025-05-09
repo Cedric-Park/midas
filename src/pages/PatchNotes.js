@@ -4,6 +4,17 @@ import { Box, Typography, Paper, Container } from '@mui/material';
 const PatchNotes = () => {
   const versions = [
     {
+      version: 'v1.1.0',
+      date: '2024-03-21',
+      changes: [
+        '✨ 관리 횟수 공유 기능 추가',
+        '- 회원 간 관리 횟수 공유 기능 구현',
+        '- 회원 정보 수정 모달에 관리 횟수 연결 필드 추가',
+        '- 연결된 회원의 관리 횟수 자동 차감 기능 구현',
+        '- 관리 내역에 연결된 회원의 사용 기록 추가'
+      ]
+    },
+    {
       version: 'v1.0.1',
       date: '2024-03-21',
       changes: [
