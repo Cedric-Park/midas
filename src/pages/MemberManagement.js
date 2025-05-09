@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Paper,
@@ -39,6 +39,135 @@ import CancelIcon from '@mui/icons-material/Cancel';
 const BROWN_BG = '#f6e7d7';
 const BROWN_TEXT = '#3C1E1E';
 
+const AddMemberDialog = React.memo(({ open, onClose, onAdd }) => {
+  const [newMember, setNewMember] = useState({
+    name: '',
+    gender: '남',
+    birthDate: '',
+    purpose: '다이어트',
+    phone: '',
+    remainCount: 12,
+    notes: '',
+    relationship: ''
+  });
+
+  const handleChange = (field, value) => {
+    setNewMember(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleSubmit = async () => {
+    if (!newMember.name || !newMember.birthDate || !newMember.phone) {
+      alert('이름, 생년월일, 전화번호는 필수입니다.');
+      return;
+    }
+    const today = new Date().toISOString().split('T')[0];
+    try {
+      const response = await axios.post('http://localhost:3001/members', {
+        ...newMember,
+        birth_date: newMember.birthDate,
+        join_date: today,
+        last_visit: '',
+        notes: newMember.notes || '',
+        remaining_sessions: newMember.remainCount,
+        birthDate: undefined,
+        remainCount: undefined
+      });
+      
+      onAdd(response.data);
+      setNewMember({
+        name: '',
+        gender: '남',
+        birthDate: '',
+        purpose: '다이어트',
+        phone: '',
+        remainCount: 12,
+        notes: '',
+        relationship: ''
+      });
+      onClose();
+    } catch (error) {
+      alert('회원 등록에 실패했습니다.');
+    }
+  };
+
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
+      <DialogTitle>회원 등록</DialogTitle>
+      <DialogContent>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
+          <TextField
+            label="이름"
+            value={newMember.name}
+            onChange={(e) => handleChange('name', e.target.value)}
+            fullWidth
+            required
+            autoFocus
+          />
+          <ToggleButtonGroup
+            value={newMember.gender}
+            exclusive
+            onChange={(_, v) => v && handleChange('gender', v)}
+            sx={{ width: '100%' }}
+          >
+            <ToggleButton value="남" sx={{ flex: 1 }}>남</ToggleButton>
+            <ToggleButton value="여" sx={{ flex: 1 }}>여</ToggleButton>
+          </ToggleButtonGroup>
+          <TextField
+            label="생년월일"
+            type="date"
+            value={newMember.birthDate}
+            onChange={(e) => handleChange('birthDate', e.target.value)}
+            InputLabelProps={{ shrink: true }}
+            fullWidth
+            required
+          />
+          <ToggleButtonGroup
+            value={newMember.purpose}
+            exclusive
+            onChange={(_, v) => v && handleChange('purpose', v)}
+            sx={{ width: '100%' }}
+          >
+            <ToggleButton value="다이어트" sx={{ flex: 1 }}>다이어트</ToggleButton>
+            <ToggleButton value="통증" sx={{ flex: 1 }}>통증</ToggleButton>
+          </ToggleButtonGroup>
+          <TextField
+            label="전화번호"
+            value={newMember.phone}
+            onChange={(e) => handleChange('phone', e.target.value)}
+            fullWidth
+            required
+          />
+          <TextField
+            label="남은 관리횟수"
+            type="number"
+            value={newMember.remainCount}
+            onChange={(e) => handleChange('remainCount', Number(e.target.value))}
+            fullWidth
+          />
+          <TextField
+            label="소개(관계)"
+            value={newMember.relationship}
+            onChange={(e) => handleChange('relationship', e.target.value)}
+            fullWidth
+          />
+          <TextField
+            label="특이사항"
+            value={newMember.notes}
+            onChange={(e) => handleChange('notes', e.target.value)}
+            fullWidth
+            multiline
+            minRows={2}
+          />
+        </Box>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose}>취소</Button>
+        <Button onClick={handleSubmit} variant="contained">등록</Button>
+      </DialogActions>
+    </Dialog>
+  );
+});
+
 const MemberManagement = () => {
   const [members, setMembers] = useState([]);
   const [filteredMembers, setFilteredMembers] = useState([]);
@@ -67,7 +196,14 @@ const MemberManagement = () => {
     fetchMembers();
   }, []);
 
+  // 검색어 변경 시에만 필터링
   useEffect(() => {
+    // 회원 추가 모달이 열려있을 때는 필터링하지 않음
+    if (openAddDialog) {
+      setFilteredMembers(members);
+      return;
+    }
+    
     const filtered = members.filter(member => 
       member.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       member.phone.includes(searchTerm) ||
@@ -75,7 +211,14 @@ const MemberManagement = () => {
     );
     setFilteredMembers(filtered);
     setPage(0);
-  }, [searchTerm, members]);
+  }, [searchTerm, openAddDialog]);
+
+  // members가 변경될 때만 filteredMembers 업데이트
+  useEffect(() => {
+    if (!searchTerm && !openAddDialog) {
+      setFilteredMembers(members);
+    }
+  }, [members]);
 
   useEffect(() => {
     if (members.length > 0) {
@@ -119,43 +262,12 @@ const MemberManagement = () => {
     setPage(0);
   };
 
-  const handleAddMember = async () => {
-    if (!newMember.name || !newMember.birthDate || !newMember.phone) {
-      alert('이름, 생년월일, 전화번호는 필수입니다.');
-      return;
+  const handleAddMember = (newMemberData) => {
+    setMembers(prev => [...prev, newMemberData]);
+    if (!searchTerm) {
+      setFilteredMembers(prev => [...prev, newMemberData]);
     }
-    const today = new Date().toISOString().split('T')[0];
-    try {
-      const response = await axios.post('http://localhost:3001/members', {
-        ...newMember,
-        birth_date: newMember.birthDate,
-        join_date: today,
-        last_visit: '',
-        notes: newMember.notes || '',
-        remaining_sessions: newMember.remainCount,
-        birthDate: undefined,
-        remainCount: undefined
-      });
-      
-      await fetchMembers(); // 서버에서 최신 데이터를 가져옵니다
-      
-      // 회원 변경 이벤트 발생
-      window.dispatchEvent(new Event('memberChange'));
-      
-      setOpenAddDialog(false);
-      setNewMember({
-        name: '',
-        gender: '남',
-        birthDate: '',
-        purpose: '다이어트',
-        phone: '',
-        remainCount: 12,
-        notes: '',
-        relationship: ''
-      });
-    } catch (error) {
-      alert('회원 등록에 실패했습니다.');
-    }
+    window.dispatchEvent(new Event('memberChange'));
   };
 
   const handleEditMember = async () => {
@@ -247,6 +359,10 @@ const MemberManagement = () => {
     } catch (error) {
       alert('초기화에 실패했습니다.');
     }
+  };
+
+  const handleNewMemberChange = (field, value) => {
+    setNewMember(prev => ({ ...prev, [field]: value }));
   };
 
   return (
@@ -478,81 +594,11 @@ const MemberManagement = () => {
         />
       </TableContainer>
 
-      {/* 회원 추가 다이얼로그 */}
-      <Dialog open={openAddDialog} onClose={() => setOpenAddDialog(false)} maxWidth="xs" fullWidth>
-        <DialogTitle>회원 등록</DialogTitle>
-        <DialogContent>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
-            <TextField
-              label="이름"
-              value={newMember.name}
-              onChange={(e) => setNewMember({ ...newMember, name: e.target.value })}
-              fullWidth
-              required
-              autoFocus
-            />
-            <ToggleButtonGroup
-              value={newMember.gender}
-              exclusive
-              onChange={(_, v) => v && setNewMember({ ...newMember, gender: v })}
-              sx={{ width: '100%' }}
-            >
-              <ToggleButton value="남" sx={{ flex: 1 }}>남</ToggleButton>
-              <ToggleButton value="여" sx={{ flex: 1 }}>여</ToggleButton>
-            </ToggleButtonGroup>
-            <TextField
-              label="생년월일"
-              type="date"
-              value={newMember.birthDate}
-              onChange={(e) => setNewMember({ ...newMember, birthDate: e.target.value })}
-              InputLabelProps={{ shrink: true }}
-              fullWidth
-              required
-            />
-            <ToggleButtonGroup
-              value={newMember.purpose}
-              exclusive
-              onChange={(_, v) => v && setNewMember({ ...newMember, purpose: v })}
-              sx={{ width: '100%' }}
-            >
-              <ToggleButton value="다이어트" sx={{ flex: 1 }}>다이어트</ToggleButton>
-              <ToggleButton value="통증" sx={{ flex: 1 }}>통증</ToggleButton>
-            </ToggleButtonGroup>
-            <TextField
-              label="전화번호"
-              value={newMember.phone}
-              onChange={(e) => setNewMember({ ...newMember, phone: e.target.value })}
-              fullWidth
-              required
-            />
-            <TextField
-              label="남은 관리횟수"
-              type="number"
-              value={newMember.remainCount}
-              onChange={(e) => setNewMember({ ...newMember, remainCount: Number(e.target.value) })}
-              fullWidth
-            />
-            <TextField
-              label="소개(관계)"
-              value={newMember.relationship}
-              onChange={(e) => setNewMember({ ...newMember, relationship: e.target.value })}
-              fullWidth
-            />
-            <TextField
-              label="특이사항"
-              value={newMember.notes}
-              onChange={(e) => setNewMember({ ...newMember, notes: e.target.value })}
-              fullWidth
-              multiline
-              minRows={2}
-            />
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpenAddDialog(false)}>취소</Button>
-          <Button onClick={handleAddMember} variant="contained">등록</Button>
-        </DialogActions>
-      </Dialog>
+      <AddMemberDialog 
+        open={openAddDialog} 
+        onClose={() => setOpenAddDialog(false)} 
+        onAdd={handleAddMember}
+      />
 
       {/* 회원 수정 다이얼로그 */}
       <Dialog open={openEditDialog} onClose={() => setOpenEditDialog(false)} maxWidth="xs" fullWidth>
