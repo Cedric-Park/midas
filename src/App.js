@@ -4,9 +4,11 @@ import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import CalendarTest from './components/CalendarTest';
 import MemberManagement from './pages/MemberManagement';
+import PatchNotes from './pages/PatchNotes';
 import { AppBar, Toolbar, Typography, Box, Autocomplete, TextField, IconButton } from '@mui/material';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import PeopleIcon from '@mui/icons-material/People';
+import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
@@ -26,6 +28,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import SaveIcon from '@mui/icons-material/Save';
 import CancelIcon from '@mui/icons-material/Cancel';
+import Footer from './components/Footer';
 
 const theme = createTheme({
   palette: {
@@ -296,204 +299,240 @@ function App() {
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <Router>
-        <AppBar position="static" color="primary" elevation={0} sx={{ mb: 2 }}>
-          <Toolbar sx={{ minHeight: { xs: 56, sm: 64 } }}>
-            <Box sx={{ flex: 1, display: 'flex', alignItems: 'center' }}>
-              <Typography variant="h5" sx={{ color: 'primary.contrastText' }}>
-                MIDAS
-              </Typography>
+        <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+          <AppBar position="static" color="primary" elevation={0} sx={{ mb: 2 }}>
+            <Toolbar sx={{ minHeight: { xs: 56, sm: 64 } }}>
+              <Box sx={{ flex: 1, display: 'flex', alignItems: 'center' }}>
+                <Typography variant="h5" sx={{ color: 'primary.contrastText' }}>
+                  MIDAS
+                </Typography>
+              </Box>
+              <Box sx={{ flex: 1, display: 'flex', justifyContent: 'center', gap: 2 }}>
+                <IconButton component={Link} to="/" sx={{ color: 'primary.contrastText' }}>
+                  <CalendarMonthIcon />
+                </IconButton>
+                <IconButton component={Link} to="/members" sx={{ color: 'primary.contrastText' }}>
+                  <PeopleIcon />
+                </IconButton>
+                <IconButton component={Link} to="/patch-notes" sx={{ color: 'primary.contrastText' }}>
+                  <TrendingUpIcon />
+                </IconButton>
+              </Box>
+              <Box sx={{ flex: 1, display: 'flex', justifyContent: 'flex-end' }}>
+                <Autocomplete
+                  options={patients}
+                  getOptionLabel={(option) => `${option.name} (${option.phone})`}
+                  value={searchPatient}
+                  onChange={handlePatientSelect}
+                  renderInput={(params) => (
+                    <TextField {...params} label="회원 검색" size="small" sx={{ minWidth: 220, background: '#fff', borderRadius: 1 }} />
+                  )}
+                  sx={{ width: 240, background: '#fff', borderRadius: 1 }}
+                  isOptionEqualToValue={(option, value) => option.id === value.id}
+                />
+              </Box>
+            </Toolbar>
+          </AppBar>
+          <Box component="main" sx={{ flexGrow: 1, p: 3 }}>
+            <Box
+              sx={{
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'flex-start',
+                minHeight: { xs: 'auto', sm: '70vh' },
+                width: '100%',
+                mx: 'auto',
+              }}
+            >
+              <Routes>
+                <Route path="/" element={<CalendarTest />} />
+                <Route path="/members" element={<MemberManagement />} />
+                <Route path="/patch-notes" element={<PatchNotes />} />
+              </Routes>
             </Box>
-            <Box sx={{ flex: 1, display: 'flex', justifyContent: 'center', gap: 2 }}>
-              <IconButton component={Link} to="/" sx={{ color: 'primary.contrastText' }}>
-                <CalendarMonthIcon />
-              </IconButton>
-              <IconButton component={Link} to="/members" sx={{ color: 'primary.contrastText' }}>
-                <PeopleIcon />
-              </IconButton>
-            </Box>
-            <Box sx={{ flex: 1, display: 'flex', justifyContent: 'flex-end' }}>
-              <Autocomplete
-                options={patients}
-                getOptionLabel={(option) => `${option.name} (${option.phone})`}
-                value={searchPatient}
-                onChange={handlePatientSelect}
-                renderInput={(params) => (
-                  <TextField {...params} label="회원 검색" size="small" sx={{ minWidth: 220, background: '#fff', borderRadius: 1 }} />
-                )}
-                sx={{ width: 240, background: '#fff', borderRadius: 1 }}
-                isOptionEqualToValue={(option, value) => option.id === value.id}
-              />
-            </Box>
-          </Toolbar>
-        </AppBar>
-        <Box sx={{ minHeight: '100vh', backgroundColor: 'background.default', py: { xs: 1, sm: 4 } }}>
-          <Box
-            sx={{
-              display: 'flex',
-              justifyContent: 'center',
-              alignItems: 'flex-start',
-              minHeight: { xs: 'auto', sm: '70vh' },
-              width: '100%',
-              mx: 'auto',
-            }}
-          >
-            <Routes>
-              <Route path="/" element={<CalendarTest />} />
-              <Route path="/members" element={<MemberManagement />} />
-            </Routes>
           </Box>
-        </Box>
-        <Dialog open={openPatientDialog} onClose={() => setOpenPatientDialog(false)} maxWidth="sm" fullWidth>
-          <DialogTitle>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Typography variant="h6">회원 정보</Typography>
-              <Chip 
-                label="회원" 
-                color="primary"
-              />
-            </Box>
-          </DialogTitle>
-          <DialogContent>
-            {searchPatient && (
-              <Box sx={{ mt: 2, borderRadius: 6, background: '#fff', p: 2 }}>
-                <Tabs value={activeTab} onChange={handleTabChange} sx={{ mb: 2, background: BROWN_BG, borderRadius: 2 }} textColor="secondary" indicatorColor="secondary">
-                  <Tab label="회원 정보" />
-                  <Tab label="관리 내역" />
-                </Tabs>
+          <Footer />
+          <Dialog open={openPatientDialog} onClose={() => setOpenPatientDialog(false)} maxWidth="sm" fullWidth>
+            <DialogTitle>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Typography variant="h6">회원 정보</Typography>
+                <Chip 
+                  label="회원" 
+                  color="primary"
+                />
+              </Box>
+            </DialogTitle>
+            <DialogContent>
+              {searchPatient && (
+                <Box sx={{ mt: 2, borderRadius: 6, background: '#fff', p: 2 }}>
+                  <Tabs value={activeTab} onChange={handleTabChange} sx={{ mb: 2, background: BROWN_BG, borderRadius: 2 }} textColor="secondary" indicatorColor="secondary">
+                    <Tab label="회원 정보" />
+                    <Tab label="관리 내역" />
+                  </Tabs>
 
-                {activeTab === 0 && (
-                  <Box>
-                    <Paper elevation={0} sx={{ p: 2, mb: 2 }}>
-                      <Grid container spacing={2}>
-                        <Grid item xs={12}>
-                          <Typography variant="h6">{searchPatient.name}</Typography>
-                        </Grid>
-                        <Grid item xs={6}>
-                          <Typography variant="body2" color="text.secondary">성별</Typography>
-                          <Typography variant="body1">{searchPatient.gender}</Typography>
-                        </Grid>
-                        <Grid item xs={6}>
-                          <Typography variant="body2" color="text.secondary">생년월일</Typography>
-                          {editMode ? (
-                            <TextField
-                              type="date"
-                              value={editedPatient.birth_date}
-                              onChange={(e) => setEditedPatient({ ...editedPatient, birth_date: e.target.value })}
-                              fullWidth
-                              size="small"
-                              InputLabelProps={{ shrink: true }}
-                            />
-                          ) : (
-                            <Typography variant="body1">{searchPatient.birth_date} (만 {getKoreanAge(searchPatient.birth_date)}세)</Typography>
-                          )}
-                        </Grid>
-                        <Grid item xs={6}>
-                          <Typography variant="body2" color="text.secondary">목적</Typography>
-                          {editMode ? (
-                            <ToggleButtonGroup
-                              value={editedPatient.purpose}
-                              exclusive
-                              onChange={(_, v) => v && setEditedPatient({ ...editedPatient, purpose: v })}
-                              sx={{ width: '100%' }}
-                            >
-                              <ToggleButton value="다이어트" sx={{ flex: 1 }}>다이어트</ToggleButton>
-                              <ToggleButton value="통증" sx={{ flex: 1 }}>통증</ToggleButton>
-                            </ToggleButtonGroup>
-                          ) : (
-                            <Typography variant="body1">{searchPatient.purpose}</Typography>
-                          )}
-                        </Grid>
-                        <Grid item xs={6}>
-                          <Typography variant="body2" color="text.secondary">전화번호</Typography>
-                          {editMode ? (
-                            <TextField
-                              value={editedPatient.phone}
-                              onChange={(e) => setEditedPatient({ ...editedPatient, phone: e.target.value })}
-                              fullWidth
-                              size="small"
-                            />
-                          ) : (
-                            <Typography variant="body1">{searchPatient.phone}</Typography>
-                          )}
-                        </Grid>
-                        <Grid item xs={6}>
-                          <Typography variant="body2" color="text.secondary">회원가입일</Typography>
-                          <Typography variant="body1">{searchPatient.join_date}</Typography>
-                        </Grid>
-                        <Grid item xs={6}>
-                          <Typography variant="body2" color="text.secondary">최종방문일</Typography>
-                          <Typography variant="body1">{searchPatient.last_visit}</Typography>
-                        </Grid>
-                        <Grid item xs={12}>
-                          <Typography variant="body2" color="text.secondary">소개(관계)</Typography>
-                          {editMode ? (
-                            <TextField
-                              value={editedPatient.relationship}
-                              onChange={(e) => setEditedPatient({ ...editedPatient, relationship: e.target.value })}
-                              fullWidth
-                              size="small"
-                            />
-                          ) : (
-                            <Typography variant="body1">{searchPatient.relationship || '-'}</Typography>
-                          )}
-                        </Grid>
-                        <Grid item xs={12}>
-                          <Typography variant="body2" color="text.secondary">특이사항</Typography>
-                          {editMode ? (
-                            <TextField
-                              value={editedPatient.notes}
-                              onChange={(e) => setEditedPatient({ ...editedPatient, notes: e.target.value })}
-                              fullWidth
-                              multiline
-                              rows={2}
-                              size="small"
-                            />
-                          ) : (
-                            <Typography variant="body1">{searchPatient.notes || '-'}</Typography>
-                          )}
-                        </Grid>
-                        <Grid item xs={12}>
-                          <Typography variant="body2" color="text.secondary">남은 관리횟수</Typography>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <Typography variant="body1">{searchPatient.remaining_sessions}회</Typography>
-                            {searchPatient.remaining_sessions < 3 && (
-                              <Tooltip title="관리횟수가 부족합니다. 충전이 필요합니다." arrow>
-                                <Chip 
-                                  label="관리횟수 부족" 
-                                  color="warning" 
-                                  size="small"
-                                  sx={{ 
-                                    background: '#fff3e0',
-                                    color: '#e65100',
-                                    fontWeight: 600
-                                  }}
-                                />
-                              </Tooltip>
-                            )}
-                            <Button 
-                              variant="outlined" 
-                              size="small" 
-                              onClick={() => setOpenChargeDialog(true)}
-                              sx={{ 
-                                background: BROWN_BG, 
-                                color: BROWN_TEXT, 
-                                borderColor: BROWN_TEXT,
-                                '&:hover': { 
-                                  background: '#e0cfc0',
-                                  borderColor: BROWN_TEXT
-                                } 
-                              }}
-                            >
-                              충전
-                            </Button>
-                          </Box>
-                        </Grid>
-                        <Grid item xs={12}>
-                          <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mt: 2 }}>
+                  {activeTab === 0 && (
+                    <Box>
+                      <Paper elevation={0} sx={{ p: 2, mb: 2 }}>
+                        <Grid container spacing={2}>
+                          <Grid item xs={12}>
+                            <Typography variant="h6">{searchPatient.name}</Typography>
+                          </Grid>
+                          <Grid item xs={6}>
+                            <Typography variant="body2" color="text.secondary">성별</Typography>
+                            <Typography variant="body1">{searchPatient.gender}</Typography>
+                          </Grid>
+                          <Grid item xs={6}>
+                            <Typography variant="body2" color="text.secondary">생년월일</Typography>
                             {editMode ? (
-                              <>
+                              <TextField
+                                type="date"
+                                value={editedPatient.birth_date}
+                                onChange={(e) => setEditedPatient({ ...editedPatient, birth_date: e.target.value })}
+                                fullWidth
+                                size="small"
+                                InputLabelProps={{ shrink: true }}
+                              />
+                            ) : (
+                              <Typography variant="body1">{searchPatient.birth_date} (만 {getKoreanAge(searchPatient.birth_date)}세)</Typography>
+                            )}
+                          </Grid>
+                          <Grid item xs={6}>
+                            <Typography variant="body2" color="text.secondary">목적</Typography>
+                            {editMode ? (
+                              <ToggleButtonGroup
+                                value={editedPatient.purpose}
+                                exclusive
+                                onChange={(_, v) => v && setEditedPatient({ ...editedPatient, purpose: v })}
+                                sx={{ width: '100%' }}
+                              >
+                                <ToggleButton value="다이어트" sx={{ flex: 1 }}>다이어트</ToggleButton>
+                                <ToggleButton value="통증" sx={{ flex: 1 }}>통증</ToggleButton>
+                              </ToggleButtonGroup>
+                            ) : (
+                              <Typography variant="body1">{searchPatient.purpose}</Typography>
+                            )}
+                          </Grid>
+                          <Grid item xs={6}>
+                            <Typography variant="body2" color="text.secondary">전화번호</Typography>
+                            {editMode ? (
+                              <TextField
+                                value={editedPatient.phone}
+                                onChange={(e) => setEditedPatient({ ...editedPatient, phone: e.target.value })}
+                                fullWidth
+                                size="small"
+                              />
+                            ) : (
+                              <Typography variant="body1">{searchPatient.phone}</Typography>
+                            )}
+                          </Grid>
+                          <Grid item xs={6}>
+                            <Typography variant="body2" color="text.secondary">회원가입일</Typography>
+                            <Typography variant="body1">{searchPatient.join_date}</Typography>
+                          </Grid>
+                          <Grid item xs={6}>
+                            <Typography variant="body2" color="text.secondary">최종방문일</Typography>
+                            <Typography variant="body1">{searchPatient.last_visit}</Typography>
+                          </Grid>
+                          <Grid item xs={12}>
+                            <Typography variant="body2" color="text.secondary">소개(관계)</Typography>
+                            {editMode ? (
+                              <TextField
+                                value={editedPatient.relationship}
+                                onChange={(e) => setEditedPatient({ ...editedPatient, relationship: e.target.value })}
+                                fullWidth
+                                size="small"
+                              />
+                            ) : (
+                              <Typography variant="body1">{searchPatient.relationship || '-'}</Typography>
+                            )}
+                          </Grid>
+                          <Grid item xs={12}>
+                            <Typography variant="body2" color="text.secondary">특이사항</Typography>
+                            {editMode ? (
+                              <TextField
+                                value={editedPatient.notes}
+                                onChange={(e) => setEditedPatient({ ...editedPatient, notes: e.target.value })}
+                                fullWidth
+                                multiline
+                                rows={2}
+                                size="small"
+                              />
+                            ) : (
+                              <Typography variant="body1">{searchPatient.notes || '-'}</Typography>
+                            )}
+                          </Grid>
+                          <Grid item xs={12}>
+                            <Typography variant="body2" color="text.secondary">남은 관리횟수</Typography>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <Typography variant="body1">{searchPatient.remaining_sessions}회</Typography>
+                              {searchPatient.remaining_sessions < 3 && (
+                                <Tooltip title="관리횟수가 부족합니다. 충전이 필요합니다." arrow>
+                                  <Chip 
+                                    label="관리횟수 부족" 
+                                    color="warning" 
+                                    size="small"
+                                    sx={{ 
+                                      background: '#fff3e0',
+                                      color: '#e65100',
+                                      fontWeight: 600
+                                    }}
+                                  />
+                                </Tooltip>
+                              )}
+                              <Button 
+                                variant="outlined" 
+                                size="small" 
+                                onClick={() => setOpenChargeDialog(true)}
+                                sx={{ 
+                                  background: BROWN_BG, 
+                                  color: BROWN_TEXT, 
+                                  borderColor: BROWN_TEXT,
+                                  '&:hover': { 
+                                    background: '#e0cfc0',
+                                    borderColor: BROWN_TEXT
+                                  } 
+                                }}
+                              >
+                                충전
+                              </Button>
+                            </Box>
+                          </Grid>
+                          <Grid item xs={12}>
+                            <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mt: 2 }}>
+                              {editMode ? (
+                                <>
+                                  <Button
+                                    onClick={handleCancelEdit}
+                                    variant="outlined"
+                                    sx={{ 
+                                      background: BROWN_BG, 
+                                      color: BROWN_TEXT, 
+                                      borderColor: BROWN_TEXT,
+                                      '&:hover': { 
+                                        background: '#e0cfc0',
+                                        borderColor: BROWN_TEXT
+                                      } 
+                                    }}
+                                  >
+                                    취소
+                                  </Button>
+                                  <Button
+                                    onClick={handleSaveClick}
+                                    variant="contained"
+                                    sx={{ 
+                                      background: BROWN_BG, 
+                                      color: BROWN_TEXT, 
+                                      '&:hover': { 
+                                        background: '#e0cfc0'
+                                      } 
+                                    }}
+                                  >
+                                    저장
+                                  </Button>
+                                </>
+                              ) : (
                                 <Button
-                                  onClick={handleCancelEdit}
+                                  onClick={handleEditClick}
                                   variant="outlined"
                                   sx={{ 
                                     background: BROWN_BG, 
@@ -505,140 +544,111 @@ function App() {
                                     } 
                                   }}
                                 >
-                                  취소
+                                  수정
                                 </Button>
-                                <Button
-                                  onClick={handleSaveClick}
-                                  variant="contained"
-                                  sx={{ 
-                                    background: BROWN_BG, 
-                                    color: BROWN_TEXT, 
-                                    '&:hover': { 
-                                      background: '#e0cfc0'
-                                    } 
-                                  }}
-                                >
-                                  저장
-                                </Button>
+                              )}
+                            </Box>
+                          </Grid>
+                        </Grid>
+                      </Paper>
+                    </Box>
+                  )}
+
+                  {activeTab === 1 && (
+                    <Box>
+                      {sessionHistory.map((history, index) => (
+                        <Paper key={history.id} elevation={0} sx={{ p: 2, mb: 2, backgroundColor: '#f5f5f5', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          {editSessionId === history.id ? (
+                            <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, gap: 1 }}>
+                              <TextField
+                                type="datetime-local"
+                                value={editSessionDate}
+                                onChange={e => setEditSessionDate(e.target.value)}
+                                size="small"
+                                sx={{ mb: 1 }}
+                              />
+                              <TextField
+                                value={editSessionNote}
+                                onChange={e => setEditSessionNote(e.target.value)}
+                                size="small"
+                                multiline
+                                minRows={1}
+                                maxRows={3}
+                              />
+                            </Box>
+                          ) : (
+                            <Box>
+                              <Typography variant="subtitle1" sx={{ mb: 1 }}>
+                                {new Date(history.date).toLocaleString('ko-KR')}
+                              </Typography>
+                              <Typography variant="body1" sx={{ mb: 1 }}>
+                                {history.note}
+                              </Typography>
+                            </Box>
+                          )}
+                          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1, ml: 2 }}>
+                            {editSessionId === history.id ? (
+                              <>
+                                <IconButton color="primary" onClick={handleSaveEditSession}><SaveIcon /></IconButton>
+                                <IconButton onClick={handleCancelEditSession}><CancelIcon /></IconButton>
                               </>
                             ) : (
-                              <Button
-                                onClick={handleEditClick}
-                                variant="outlined"
-                                sx={{ 
-                                  background: BROWN_BG, 
-                                  color: BROWN_TEXT, 
-                                  borderColor: BROWN_TEXT,
-                                  '&:hover': { 
-                                    background: '#e0cfc0',
-                                    borderColor: BROWN_TEXT
-                                  } 
-                                }}
-                              >
-                                수정
-                              </Button>
+                              <>
+                                <IconButton color="primary" onClick={() => handleEditSession(history)}><EditIcon /></IconButton>
+                                <IconButton color="error" onClick={() => handleDeleteSession(history.id)}><DeleteIcon /></IconButton>
+                              </>
                             )}
                           </Box>
-                        </Grid>
-                      </Grid>
-                    </Paper>
-                  </Box>
-                )}
-
-                {activeTab === 1 && (
-                  <Box>
-                    {sessionHistory.map((history, index) => (
-                      <Paper key={history.id} elevation={0} sx={{ p: 2, mb: 2, backgroundColor: '#f5f5f5', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        {editSessionId === history.id ? (
-                          <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, gap: 1 }}>
-                            <TextField
-                              type="datetime-local"
-                              value={editSessionDate}
-                              onChange={e => setEditSessionDate(e.target.value)}
-                              size="small"
-                              sx={{ mb: 1 }}
-                            />
-                            <TextField
-                              value={editSessionNote}
-                              onChange={e => setEditSessionNote(e.target.value)}
-                              size="small"
-                              multiline
-                              minRows={1}
-                              maxRows={3}
-                            />
-                          </Box>
-                        ) : (
-                          <Box>
-                            <Typography variant="subtitle1" sx={{ mb: 1 }}>
-                              {new Date(history.date).toLocaleString('ko-KR')}
-                            </Typography>
-                            <Typography variant="body1" sx={{ mb: 1 }}>
-                              {history.note}
-                            </Typography>
-                          </Box>
-                        )}
-                        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1, ml: 2 }}>
-                          {editSessionId === history.id ? (
-                            <>
-                              <IconButton color="primary" onClick={handleSaveEditSession}><SaveIcon /></IconButton>
-                              <IconButton onClick={handleCancelEditSession}><CancelIcon /></IconButton>
-                            </>
-                          ) : (
-                            <>
-                              <IconButton color="primary" onClick={() => handleEditSession(history)}><EditIcon /></IconButton>
-                              <IconButton color="error" onClick={() => handleDeleteSession(history.id)}><DeleteIcon /></IconButton>
-                            </>
-                          )}
-                        </Box>
-                      </Paper>
-                    ))}
-                  </Box>
-                )}
+                        </Paper>
+                      ))}
+                    </Box>
+                  )}
+                </Box>
+              )}
+            </DialogContent>
+            <DialogActions sx={{ display: 'flex', flexDirection: 'row', justifyContent: 'space-between', background: BROWN_BG }}>
+              <Button onClick={() => setOpenPatientDialog(false)} sx={{ background: BROWN_BG, color: BROWN_TEXT, '&:hover': { background: '#e0cfc0' } }}>닫기</Button>
+            </DialogActions>
+          </Dialog>
+          <Dialog open={openChargeDialog} onClose={() => setOpenChargeDialog(false)} maxWidth="xs" fullWidth>
+            <DialogTitle>관리횟수 충전</DialogTitle>
+            <DialogContent>
+              <Box sx={{ mt: 2 }}>
+                <TextField
+                  label="충전할 횟수"
+                  type="number"
+                  value={chargeAmount}
+                  onChange={(e) => setChargeAmount(e.target.value)}
+                  fullWidth
+                  inputProps={{ min: 1 }}
+                />
               </Box>
-            )}
-          </DialogContent>
-          <DialogActions sx={{ display: 'flex', flexDirection: 'row', justifyContent: 'space-between', background: BROWN_BG }}>
-            <Button onClick={() => setOpenPatientDialog(false)} sx={{ background: BROWN_BG, color: BROWN_TEXT, '&:hover': { background: '#e0cfc0' } }}>닫기</Button>
-          </DialogActions>
-        </Dialog>
-        <Dialog open={openChargeDialog} onClose={() => setOpenChargeDialog(false)} maxWidth="xs" fullWidth>
-          <DialogTitle>관리횟수 충전</DialogTitle>
-          <DialogContent>
-            <Box sx={{ mt: 2 }}>
-              <TextField
-                label="충전할 횟수"
-                type="number"
-                value={chargeAmount}
-                onChange={(e) => setChargeAmount(e.target.value)}
-                fullWidth
-                inputProps={{ min: 1 }}
-              />
-            </Box>
-          </DialogContent>
-          <DialogActions sx={{ background: BROWN_BG }}>
-            <Button 
-              onClick={() => setOpenChargeDialog(false)}
-              sx={{ 
-                background: BROWN_BG, 
-                color: BROWN_TEXT, 
-                '&:hover': { background: '#e0cfc0' } 
-              }}
-            >
-              취소
-            </Button>
-            <Button 
-              onClick={handleCharge}
-              variant="contained"
-              sx={{ 
-                background: BROWN_BG, 
-                color: BROWN_TEXT, 
-                '&:hover': { background: '#e0cfc0' } 
-              }}
-            >
-              충전
-            </Button>
-          </DialogActions>
-        </Dialog>
+            </DialogContent>
+            <DialogActions sx={{ background: BROWN_BG }}>
+              <Button 
+                onClick={() => setOpenChargeDialog(false)}
+                sx={{ 
+                  background: BROWN_BG, 
+                  color: BROWN_TEXT, 
+                  '&:hover': { background: '#e0cfc0' } 
+                }}
+              >
+                취소
+              </Button>
+              <Button 
+                onClick={handleCharge}
+                variant="contained"
+                sx={{ 
+                  background: BROWN_BG, 
+                  color: BROWN_TEXT, 
+                  '&:hover': { background: '#e0cfc0' } 
+                }}
+              >
+                충전
+              </Button>
+            </DialogActions>
+          </Dialog>
+        </Box>
       </Router>
     </ThemeProvider>
   );
