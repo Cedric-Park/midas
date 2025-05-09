@@ -6,10 +6,20 @@ const app = express();
 // 데이터베이스 연결 시도
 let db;
 try {
-  db = new sqlite3('midas.db');
+  db = new sqlite3('midas.db', { verbose: null });
   console.log('데이터베이스 연결 성공');
-  db.run(`CREATE TABLE IF NOT EXISTS members (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+  
+  // 데이터베이스 설정 최적화
+  db.pragma('journal_mode = WAL');
+  db.pragma('synchronous = NORMAL');
+  db.pragma('temp_store = MEMORY');
+  db.pragma('mmap_size = 30000000000');
+  db.pragma('page_size = 4096');
+  db.pragma('cache_size = -2000'); // 2MB 캐시
+
+  // members 테이블이 없으면 생성
+  db.exec(`CREATE TABLE IF NOT EXISTS members (
+    id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
     gender TEXT NOT NULL,
     birth_date TEXT NOT NULL,
@@ -22,6 +32,57 @@ try {
     notes TEXT,
     shared_with TEXT
   )`);
+
+  // appointments 테이블이 없으면 생성
+  db.exec(`CREATE TABLE IF NOT EXISTS appointments (
+    id TEXT PRIMARY KEY,
+    memberId TEXT NOT NULL,
+    start TEXT NOT NULL,
+    end TEXT NOT NULL,
+    status TEXT NOT NULL,
+    FOREIGN KEY (memberId) REFERENCES members(id)
+  )`);
+
+  // sessionHistory 테이블이 없으면 생성
+  db.exec(`CREATE TABLE IF NOT EXISTS sessionHistory (
+    id TEXT PRIMARY KEY,
+    memberId TEXT NOT NULL,
+    date TEXT NOT NULL,
+    note TEXT NOT NULL,
+    FOREIGN KEY (memberId) REFERENCES members(id)
+  )`);
+
+  // 인덱스 생성
+  db.exec('CREATE INDEX IF NOT EXISTS idx_members_id ON members(id)');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_members_phone ON members(phone)');
+
+  // 외래 키 제약 조건 다시 활성화
+  db.pragma('foreign_keys = ON');
+
+  // shared_with 컬럼이 없으면 추가
+  try {
+    db.exec('ALTER TABLE members ADD COLUMN shared_with TEXT');
+  } catch (error) {
+    // 컬럼이 이미 존재하는 경우 무시
+    if (!error.message.includes('duplicate column name')) {
+      throw error;
+    }
+  }
+
+  // depends_on 컬럼이 없으면 추가
+  try {
+    db.exec('ALTER TABLE members ADD COLUMN depends_on TEXT');
+  } catch (error) {
+    // 컬럼이 이미 존재하는 경우 무시
+    if (!error.message.includes('duplicate column name')) {
+      throw error;
+    }
+  }
+
+  // 인덱스 생성
+  db.exec('CREATE INDEX IF NOT EXISTS idx_members_id ON members(id)');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_members_phone ON members(phone)');
+
 } catch (error) {
   console.error('데이터베이스 연결 실패:', error);
   process.exit(1);
@@ -56,48 +117,135 @@ app.get('/members/:id', (req, res) => {
   }
 });
 
-// 회원 정보 업데이트 (PATCH)
+// 회원 정보 수정
 app.patch('/members/:id', (req, res) => {
   const { id } = req.params;
-  const updates = req.body;
-  const updateFields = Object.keys(updates).map(key => `${key} = ?`).join(', ');
-  const values = [...Object.values(updates), id];
-
+  const { name, gender, birth_date, purpose, phone, notes, relationship, shared_with, remaining_sessions } = req.body;
+  
+  console.log('회원 정보 수정 요청:', { id, name, gender, birth_date, purpose, phone, notes, relationship, shared_with, remaining_sessions });
+  
   try {
-    const stmt = db.prepare(`UPDATE members SET ${updateFields} WHERE id = ?`);
-    const result = stmt.run(...values);
-    
-    if (result.changes === 0) {
-      return res.status(404).json({ error: '회원을 찾을 수 없습니다.' });
+    // 트랜잭션 시작
+    db.prepare('BEGIN TRANSACTION').run();
+
+    try {
+      // 현재 회원의 이전 shared_with 값을 가져옴
+      const currentMember = db.prepare('SELECT shared_with FROM members WHERE id = ?').get(id.toString());
+      const previousSharedWith = currentMember ? JSON.parse(currentMember.shared_with || '[]') : [];
+      const newSharedWith = JSON.parse(shared_with || '[]');
+
+      // 더 이상 공유되지 않는 회원들의 depends_on에서 현재 회원 ID 제거
+      const removedMembers = previousSharedWith.filter(memberId => !newSharedWith.includes(memberId));
+      for (const memberId of removedMembers) {
+        const member = db.prepare('SELECT depends_on FROM members WHERE id = ?').get(memberId);
+        if (member) {
+          const dependsOn = JSON.parse(member.depends_on || '[]');
+          const updatedDependsOn = dependsOn.filter(depId => depId !== id.toString());
+          db.prepare('UPDATE members SET depends_on = ? WHERE id = ?').run(
+            JSON.stringify(updatedDependsOn),
+            memberId
+          );
+        }
+      }
+
+      // 새로 추가된 회원들의 depends_on에 현재 회원 ID 추가
+      const addedMembers = newSharedWith.filter(memberId => !previousSharedWith.includes(memberId));
+      for (const memberId of addedMembers) {
+        const member = db.prepare('SELECT depends_on FROM members WHERE id = ?').get(memberId);
+        if (member) {
+          const dependsOn = JSON.parse(member.depends_on || '[]');
+          if (!dependsOn.includes(id.toString())) {
+            dependsOn.push(id.toString());
+            db.prepare('UPDATE members SET depends_on = ? WHERE id = ?').run(
+              JSON.stringify(dependsOn),
+              memberId
+            );
+          }
+        }
+      }
+
+      // 현재 회원 정보 업데이트
+      const stmt = db.prepare(`
+        UPDATE members 
+        SET name = ?, 
+            gender = ?, 
+            birth_date = ?, 
+            purpose = ?, 
+            phone = ?, 
+            notes = ?, 
+            relationship = ?,
+            shared_with = ?,
+            remaining_sessions = ?
+        WHERE id = ?
+      `);
+      
+      const result = stmt.run(
+        name,
+        gender,
+        birth_date,
+        purpose,
+        phone,
+        notes,
+        relationship,
+        shared_with,
+        remaining_sessions,
+        id.toString()
+      );
+      
+      console.log('업데이트 결과:', result);
+      
+      if (result.changes === 0) {
+        db.prepare('ROLLBACK').run();
+        return res.status(404).json({ error: '회원을 찾을 수 없습니다.' });
+      }
+      
+      const updatedMember = db.prepare('SELECT * FROM members WHERE id = ?').get(id.toString());
+      console.log('업데이트된 회원 정보:', updatedMember);
+      
+      // 트랜잭션 커밋
+      db.prepare('COMMIT').run();
+      
+      res.json(updatedMember);
+    } catch (error) {
+      // 에러 발생 시 롤백
+      db.prepare('ROLLBACK').run();
+      console.error('SQL 실행 중 오류:', error);
+      throw error;
     }
-    
-    res.json({ message: '회원 정보가 성공적으로 업데이트되었습니다.' });
   } catch (error) {
-    console.error('회원 정보 업데이트 실패:', error);
-    res.status(500).json({ error: '회원 정보 업데이트에 실패했습니다.' });
+    console.error('회원 정보 수정 실패:', error);
+    res.status(500).json({ 
+      error: '회원 정보 수정에 실패했습니다.',
+      details: error.message 
+    });
   }
 });
 
 // 회원 등록
 app.post('/members', (req, res) => {
-  const { name, gender, birth_date, purpose, phone, join_date, last_visit, notes, remaining_sessions, relationship } = req.body;
-  const id = Date.now().toString();
+  const { name, gender, birth_date, purpose, phone, relationship, shared_with, remaining_sessions } = req.body;
   
   try {
-    db.prepare(`
+    // 7자리 랜덤 문자열 생성 (대문자 알파벳과 숫자)
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let id = '';
+    for (let i = 0; i < 7; i++) {
+      id += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    
+    const stmt = db.prepare(`
       INSERT INTO members (
-        id, name, gender, birth_date, purpose, phone, join_date, 
-        last_visit, notes, remaining_sessions, relationship
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      id, name, gender, birth_date, purpose, phone, join_date,
-      last_visit, notes, remaining_sessions, relationship
+        id, name, gender, birth_date, purpose, phone, relationship, shared_with, remaining_sessions
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    
+    const result = stmt.run(
+      id,
+      name, gender, birth_date, purpose, phone, relationship, shared_with, remaining_sessions || 0
     );
     
-    res.json({ 
-      id, name, gender, birth_date, purpose, phone, join_date,
-      last_visit, notes, remaining_sessions, relationship
-    });
+    const newMember = db.prepare('SELECT * FROM members WHERE id = ?').get(id);
+    res.json(newMember);
   } catch (error) {
     console.error('회원 등록 실패:', error);
     res.status(500).json({ error: '회원 등록에 실패했습니다.' });
@@ -224,18 +372,27 @@ app.delete('/appointments/:id', (req, res) => {
 
 // 세션 내역 조회
 app.get('/sessionHistory', (req, res) => {
-  const { memberId } = req.query;
+  const { memberId, startDate } = req.query;
   
   if (!memberId) {
     return res.status(400).json({ error: 'memberId is required' });
   }
 
   try {
-    const history = db.prepare(`
+    let query = `
       SELECT * FROM sessionHistory 
       WHERE memberId = ? 
-      ORDER BY date DESC
-    `).all(memberId);
+    `;
+    const params = [memberId];
+
+    if (startDate) {
+      query += ` AND date >= ?`;
+      params.push(startDate);
+    }
+
+    query += ` ORDER BY date DESC LIMIT 100`;
+
+    const history = db.prepare(query).all(...params);
     
     res.json(history);
   } catch (error) {
@@ -296,70 +453,43 @@ app.patch('/sessionHistory/:id', (req, res) => {
 });
 
 // 세션 완료 API
-app.post('/completeSession', async (req, res) => {
+app.post('/completeSession', (req, res) => {
   const { memberId, date, note } = req.body;
   
   try {
     // 회원 정보 조회
-    const member = await new Promise((resolve, reject) => {
-      db.get('SELECT * FROM members WHERE id = ?', [memberId], (err, row) => {
-        if (err) reject(err);
-        resolve(row);
-      });
-    });
+    const member = db.prepare('SELECT * FROM members WHERE id = ?').get(memberId);
+    if (!member) {
+      return res.status(404).json({ error: '회원을 찾을 수 없습니다.' });
+    }
 
     // 연결된 회원이 있는지 확인
     let targetMemberId = memberId;
-    if (member.shared_with) {
-      const sharedIds = JSON.parse(member.shared_with);
-      if (sharedIds.length > 0) {
-        targetMemberId = sharedIds[0]; // 첫 번째 연결된 회원의 관리 횟수 사용
+    if (member.depends_on) {
+      const dependsOn = JSON.parse(member.depends_on);
+      if (dependsOn.length > 0) {
+        targetMemberId = dependsOn[0]; // 첫 번째 의존하는 회원의 관리 횟수 사용
       }
     }
 
     // 연결된 회원의 관리 횟수 차감
-    await new Promise((resolve, reject) => {
-      db.run(
-        'UPDATE members SET remaining_sessions = remaining_sessions - 1 WHERE id = ?',
-        [targetMemberId],
-        (err) => {
-          if (err) reject(err);
-          resolve();
-        }
-      );
-    });
+    db.prepare(
+      'UPDATE members SET remaining_sessions = remaining_sessions - 1 WHERE id = ?'
+    ).run(targetMemberId);
 
     // 세션 기록 추가
-    await new Promise((resolve, reject) => {
-      db.run(
-        'INSERT INTO sessionHistory (memberId, date, note) VALUES (?, ?, ?)',
-        [memberId, date, note],
-        (err) => {
-          if (err) reject(err);
-          resolve();
-        }
-      );
-    });
+    db.prepare(
+      'INSERT INTO sessionHistory (memberId, date, note) VALUES (?, ?, ?)'
+    ).run(memberId, date, note);
 
     // 연결된 회원의 세션 기록에도 추가
     if (targetMemberId !== memberId) {
-      const targetMember = await new Promise((resolve, reject) => {
-        db.get('SELECT name FROM members WHERE id = ?', [targetMemberId], (err, row) => {
-          if (err) reject(err);
-          resolve(row);
-        });
-      });
-
-      await new Promise((resolve, reject) => {
-        db.run(
-          'INSERT INTO sessionHistory (memberId, date, note) VALUES (?, ?, ?)',
-          [targetMemberId, date, `${member.name}님이 관리 횟수 1회 사용`],
-          (err) => {
-            if (err) reject(err);
-            resolve();
-          }
-        );
-      });
+      const targetMember = db.prepare('SELECT name FROM members WHERE id = ?').get(targetMemberId);
+      if (targetMember) {
+        db.prepare(
+          'INSERT INTO sessionHistory (memberId, date, note) VALUES (?, ?, ?)'
+        ).run(targetMemberId, date, `${member.name}님이 관리 횟수 1회 사용`);
+      }
     }
 
     res.json({ success: true });

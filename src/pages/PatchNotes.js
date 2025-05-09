@@ -4,6 +4,18 @@ import { Box, Typography, Paper, Container } from '@mui/material';
 const PatchNotes = () => {
   const versions = [
     {
+      version: 'v1.2.0',
+      date: '2024-03-21',
+      changes: [
+        '✨ 세션 완료 기능 개선',
+        '- 세션 완료 시 공유 회원의 관리 내역에 관리 횟수 변경 정보 추가',
+        '- 세션 내역에 예약된 시간 기록 방식 변경',
+        '🐛 버그 수정',
+        '- 예약 취소 시 발생하던 status 속성 관련 오류 수정',
+        '- 세션 완료 후 공유 회원의 관리 횟수 실시간 갱신 문제 해결'
+      ]
+    },
+    {
       version: 'v1.1.0',
       date: '2024-03-21',
       changes: [

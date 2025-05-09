@@ -25,7 +25,8 @@ import {
   Grid,
   Card,
   CardContent,
-  LinearProgress
+  LinearProgress,
+  Autocomplete
 } from '@mui/material';
 import axios from 'axios';
 import EditIcon from '@mui/icons-material/Edit';
@@ -39,7 +40,7 @@ import CancelIcon from '@mui/icons-material/Cancel';
 const BROWN_BG = '#f6e7d7';
 const BROWN_TEXT = '#3C1E1E';
 
-const AddMemberDialog = React.memo(({ open, onClose, onAdd }) => {
+const AddMemberDialog = React.memo(({ open, onClose, onAdd, members }) => {
   const [newMember, setNewMember] = useState({
     name: '',
     gender: '남',
@@ -50,9 +51,22 @@ const AddMemberDialog = React.memo(({ open, onClose, onAdd }) => {
     notes: '',
     relationship: ''
   });
+  const [selectedSharedMember, setSelectedSharedMember] = useState(null);
+  const [sharedMembers, setSharedMembers] = useState([]);
 
   const handleChange = (field, value) => {
     setNewMember(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleSharedMemberChange = (event, newValue) => {
+    if (newValue && !sharedMembers.find(m => m.id === newValue.id)) {
+      setSharedMembers([...sharedMembers, newValue]);
+    }
+    setSelectedSharedMember(null);
+  };
+
+  const handleRemoveSharedMember = (memberId) => {
+    setSharedMembers(sharedMembers.filter(m => m.id !== memberId));
   };
 
   const handleSubmit = async () => {
@@ -66,11 +80,12 @@ const AddMemberDialog = React.memo(({ open, onClose, onAdd }) => {
         ...newMember,
         birth_date: newMember.birthDate,
         join_date: today,
-        last_visit: '',
+        last_visit: today,
         notes: newMember.notes || '',
         remaining_sessions: newMember.remainCount,
         birthDate: undefined,
-        remainCount: undefined
+        remainCount: undefined,
+        shared_with: JSON.stringify(sharedMembers.map(m => m.id))
       });
       
       onAdd(response.data);
@@ -84,6 +99,7 @@ const AddMemberDialog = React.memo(({ open, onClose, onAdd }) => {
         notes: '',
         relationship: ''
       });
+      setSharedMembers([]);
       onClose();
     } catch (error) {
       alert('회원 등록에 실패했습니다.');
@@ -158,6 +174,53 @@ const AddMemberDialog = React.memo(({ open, onClose, onAdd }) => {
             multiline
             minRows={2}
           />
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+              관리 횟수 연결
+            </Typography>
+            <Autocomplete
+              options={members.filter(m => !sharedMembers.find(sm => sm.id === m.id))}
+              getOptionLabel={(option) => {
+                const isShared = option.shared_with && JSON.parse(option.shared_with).length > 0;
+                const isDependent = members.some(m => m.shared_with && JSON.parse(m.shared_with).includes(option.id));
+                let label = `${option.name} (${option.phone})`;
+                if (isShared) {
+                  label += ' [관리횟수 공유 중]';
+                } else if (isDependent) {
+                  label += ' [관리횟수 의존 중]';
+                }
+                return label;
+              }}
+              value={selectedSharedMember}
+              onChange={handleSharedMemberChange}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  size="small"
+                  placeholder="관리 횟수 연결할 회원 검색"
+                />
+              )}
+            />
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+              {sharedMembers.map((member) => (
+                <Chip
+                  key={member.id}
+                  label={`${member.name} (${member.phone})`}
+                  onDelete={() => handleRemoveSharedMember(member.id)}
+                  sx={{
+                    backgroundColor: '#e3f2fd',
+                    color: '#1565c0',
+                    '& .MuiChip-deleteIcon': {
+                      color: '#1565c0',
+                      '&:hover': {
+                        color: '#0d47a1'
+                      }
+                    }
+                  }}
+                />
+              ))}
+            </Box>
+          </Box>
         </Box>
       </DialogContent>
       <DialogActions>
@@ -191,12 +254,25 @@ const MemberManagement = () => {
   const [purposeStats, setPurposeStats] = useState({ diet: 0, pain: 0 });
   const [editCell, setEditCell] = useState({ id: null, field: null });
   const [editValue, setEditValue] = useState('');
+  const [editMode, setEditMode] = useState(false);
+  const [editedMember, setEditedMember] = useState({
+    id: '',
+    name: '',
+    gender: '남',
+    birth_date: '',
+    purpose: '다이어트',
+    phone: '',
+    notes: '',
+    relationship: '',
+    shared_with: '[]'
+  });
+  const [sharedMembers, setSharedMembers] = useState([]);
+  const [selectedSharedMember, setSelectedSharedMember] = useState(null);
 
   useEffect(() => {
     fetchMembers();
   }, []);
 
-  // 검색어 변경 시에만 필터링
   useEffect(() => {
     // 회원 추가 모달이 열려있을 때는 필터링하지 않음
     if (openAddDialog) {
@@ -204,21 +280,25 @@ const MemberManagement = () => {
       return;
     }
     
-    const filtered = members.filter(member => 
-      member.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      member.phone.includes(searchTerm) ||
-      member.relationship?.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    const filtered = members.filter(member => {
+      if (!member) return false;
+      
+      const searchTermLower = searchTerm.toLowerCase();
+      const nameMatch = member.name ? member.name.toLowerCase().includes(searchTermLower) : false;
+      const phoneMatch = member.phone ? member.phone.includes(searchTerm) : false;
+      const relationshipMatch = member.relationship ? member.relationship.toLowerCase().includes(searchTermLower) : false;
+      
+      return nameMatch || phoneMatch || relationshipMatch;
+    });
     setFilteredMembers(filtered);
     setPage(0);
   }, [searchTerm, openAddDialog]);
 
-  // members가 변경될 때만 filteredMembers 업데이트
   useEffect(() => {
     if (!searchTerm && !openAddDialog) {
       setFilteredMembers(members);
     }
-  }, [members]);
+  }, [members, searchTerm, openAddDialog]);
 
   useEffect(() => {
     if (members.length > 0) {
@@ -247,7 +327,33 @@ const MemberManagement = () => {
   const fetchMembers = async () => {
     try {
       const response = await axios.get('http://localhost:3001/members');
-      setMembers(response.data);
+      if (response.data && Array.isArray(response.data)) {
+        // ID를 문자열로 변환하고 모든 필드가 있는지 확인
+        const membersWithStringIds = response.data.map(member => {
+          if (!member || !member.id) {
+            console.error('잘못된 회원 데이터:', member);
+            return null;
+          }
+          return {
+            ...member,
+            id: String(member.id),
+            name: member.name || '',
+            gender: member.gender || '남',
+            birth_date: member.birth_date || '',
+            purpose: member.purpose || '다이어트',
+            phone: member.phone || '',
+            notes: member.notes || '',
+            relationship: member.relationship || '',
+            shared_with: member.shared_with || '[]'
+          };
+        }).filter(member => member !== null);
+
+        console.log('가져온 회원 데이터:', membersWithStringIds);
+        setMembers(membersWithStringIds);
+        setFilteredMembers(membersWithStringIds);
+      } else {
+        console.error('회원 데이터 형식이 올바르지 않습니다:', response.data);
+      }
     } catch (error) {
       console.error('회원 목록을 불러오는데 실패했습니다:', error);
     }
@@ -279,11 +385,15 @@ const MemberManagement = () => {
         purpose: selectedMember.purpose,
         phone: selectedMember.phone,
         notes: selectedMember.notes,
-        relationship: selectedMember.relationship
+        relationship: selectedMember.relationship,
+        shared_with: selectedMember.shared_with
       });
       
       setOpenEditDialog(false);
       await fetchMembers(); // 서버에서 최신 데이터를 가져옵니다
+      
+      // 회원 변경 이벤트 발생
+      window.dispatchEvent(new Event('memberChange'));
     } catch (error) {
       alert('회원 정보 수정에 실패했습니다.');
     }
@@ -336,15 +446,31 @@ const MemberManagement = () => {
 
   const handleInlineSave = async (member) => {
     try {
-      await axios.patch(`http://localhost:3001/members/${member.id}`, {
-        [editCell.field]: editValue
-      });
+      // 기존 회원 데이터를 유지하면서 remaining_sessions만 업데이트
+      const updateData = {
+        name: member.name || '',
+        gender: member.gender || '남',
+        birth_date: member.birth_date || '',
+        purpose: member.purpose || '다이어트',
+        phone: member.phone || '',
+        notes: member.notes || '',
+        relationship: member.relationship || '',
+        shared_with: member.shared_with || '[]',
+        remaining_sessions: Number(editValue) || 0,
+        join_date: member.join_date || new Date().toISOString().split('T')[0],
+        last_visit: member.last_visit || ''
+      };
+      
+      console.log('업데이트할 데이터:', updateData);
+      const response = await axios.patch(`http://localhost:3001/members/${member.id}`, updateData);
+      console.log('서버 응답:', response.data);
       
       setEditCell({ id: null, field: null });
       setEditValue('');
       await fetchMembers(); // 서버에서 최신 데이터를 가져옵니다
     } catch (error) {
-      alert('수정에 실패했습니다.');
+      console.error('관리 횟수 수정 실패:', error);
+      alert('관리 횟수 수정에 실패했습니다.');
     }
   };
 
@@ -365,6 +491,156 @@ const MemberManagement = () => {
     setNewMember(prev => ({ ...prev, [field]: value }));
   };
 
+  const handleEditClick = (member) => {
+    console.log('handleEditClick 호출 - 전달받은 회원 정보:', member);
+    
+    if (!member || !member.id) {
+      console.error('회원 정보 또는 ID가 없습니다:', member);
+      return;
+    }
+
+    // ID가 'null'인 경우 체크
+    if (member.id === 'null') {
+      console.error('회원 ID가 "null"입니다:', member);
+      return;
+    }
+
+    setEditMode(true);
+    
+    // 회원 정보를 새 객체로 복사하여 설정
+    const updatedMember = {
+      id: member.id.toString(),
+      name: member.name || '',
+      gender: member.gender || '남',
+      birth_date: member.birth_date || '',
+      purpose: member.purpose || '다이어트',
+      phone: member.phone || '',
+      notes: member.notes || '',
+      relationship: member.relationship || '',
+      shared_with: member.shared_with || '[]',
+      depends_on: member.depends_on || '[]',
+      remaining_sessions: member.remaining_sessions || 0
+    };
+    
+    console.log('설정될 회원 정보:', updatedMember);
+    setEditedMember(updatedMember);
+    
+    // 공유 중인 회원들과 의존 중인 회원들을 모두 가져옴
+    const sharedIds = member.shared_with ? JSON.parse(member.shared_with) : [];
+    const dependsOnIds = member.depends_on ? JSON.parse(member.depends_on) : [];
+    
+    const sharedMembersList = members.filter(m => sharedIds.includes(m.id));
+    const dependsOnMembersList = members.filter(m => dependsOnIds.includes(m.id));
+    
+    setSharedMembers([...sharedMembersList, ...dependsOnMembersList]);
+  };
+
+  const handleSaveClick = async () => {
+    try {
+      console.log('저장 시작 - editedMember:', editedMember);
+      
+      if (!editedMember) {
+        console.error('editedMember가 없습니다');
+        alert('회원 정보가 올바르지 않습니다.');
+        return;
+      }
+
+      if (!editedMember.id) {
+        console.error('editedMember.id가 없습니다:', editedMember);
+        alert('회원 ID가 없습니다.');
+        return;
+      }
+
+      if (editedMember.id === 'null') {
+        console.error('editedMember.id가 "null"입니다:', editedMember);
+        alert('회원 ID가 올바르지 않습니다.');
+        return;
+      }
+
+      // 현재 선택된 공유 회원들의 ID 배열
+      const sharedIds = sharedMembers.map(m => m.id.toString());
+      console.log('공유할 회원 ID들:', sharedIds);
+      
+      // 현재 회원의 정보 업데이트
+      const updateData = {
+        ...editedMember,
+        shared_with: JSON.stringify(sharedIds),
+        depends_on: '[]'
+      };
+      
+      console.log('서버로 전송할 데이터:', updateData);
+      const response = await axios.patch(`http://localhost:3001/members/${editedMember.id}`, updateData);
+      console.log('서버 응답:', response.data);
+
+      // 이전에 연결되어 있던 회원들 조회
+      const previousSharedWith = editedMember.shared_with ? JSON.parse(editedMember.shared_with) : [];
+      
+      // 더 이상 공유되지 않는 회원들의 ID 배열
+      const removedMembers = previousSharedWith.filter(id => !sharedIds.includes(id));
+      console.log('제거된 회원 ID들:', removedMembers);
+
+      // 제거된 회원들의 depends_on에서 현재 회원 ID 제거
+      for (const memberId of removedMembers) {
+        const member = await axios.get(`http://localhost:3001/members/${memberId}`);
+        if (member.data) {
+          const currentDependsOn = JSON.parse(member.data.depends_on || '[]');
+          const updatedDependsOn = currentDependsOn.filter(id => id !== editedMember.id);
+          
+          console.log(`회원 ${memberId}의 depends_on 업데이트:`, {
+            이전: currentDependsOn,
+            이후: updatedDependsOn
+          });
+          
+          await axios.patch(`http://localhost:3001/members/${memberId}`, {
+            ...member.data,
+            depends_on: JSON.stringify(updatedDependsOn)
+          });
+        }
+      }
+
+      // 새로 추가된 회원들의 depends_on에 현재 회원 ID 추가
+      for (const memberId of sharedIds) {
+        const member = await axios.get(`http://localhost:3001/members/${memberId}`);
+        if (member.data) {
+          const currentDependsOn = JSON.parse(member.data.depends_on || '[]');
+          if (!currentDependsOn.includes(editedMember.id)) {
+            const updatedDependsOn = [...currentDependsOn, editedMember.id];
+            
+            console.log(`회원 ${memberId}의 depends_on 업데이트:`, {
+              이전: currentDependsOn,
+              이후: updatedDependsOn
+            });
+            
+            await axios.patch(`http://localhost:3001/members/${memberId}`, {
+              ...member.data,
+              depends_on: JSON.stringify(updatedDependsOn)
+            });
+          }
+        }
+      }
+
+      setEditMode(false);
+      await fetchMembers();
+      
+      // 회원 변경 이벤트 발생
+      window.dispatchEvent(new Event('memberChange'));
+    } catch (error) {
+      console.error('회원 정보 수정에 실패했습니다:', error);
+      alert('회원 정보 수정에 실패했습니다.');
+    }
+  };
+
+  const handleSharedMemberChange = (event, newValue) => {
+    if (newValue && !sharedMembers.find(m => m.id === newValue.id)) {
+      setSharedMembers([...sharedMembers, newValue]);
+    }
+    setSelectedSharedMember(null);
+  };
+
+  const handleRemoveSharedMember = (memberId) => {
+    setSharedMembers(sharedMembers.filter(m => m.id !== memberId));
+  };
+
   return (
     <Box sx={{ p: 3, width: '100%', maxWidth: '100%' }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
@@ -374,7 +650,7 @@ const MemberManagement = () => {
         </Box>
         <Box sx={{ display: 'flex', gap: 2 }}>
           <TextField
-            placeholder="회원 검색"
+            placeholder="전체 회원 검색"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             size="small"
@@ -505,81 +781,213 @@ const MemberManagement = () => {
           <TableBody>
             {filteredMembers
               .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-              .map((member) => (
-                <TableRow key={member.id}>
-                  <TableCell>{member.name}</TableCell>
-                  <TableCell>{member.gender}</TableCell>
-                  <TableCell>
-                    {member.birth_date} (만 {getKoreanAge(member.birth_date)}세)
-                  </TableCell>
-                  <TableCell>{member.purpose}</TableCell>
-                  <TableCell>{member.phone}</TableCell>
-                  <TableCell>{member.relationship || '-'}</TableCell>
-                  <TableCell sx={{ position: 'relative', minWidth: 120 }}>
-                    <span>{member.notes || '-'}</span>
-                  </TableCell>
-                  <TableCell sx={{ position: 'relative', minWidth: 120 }}>
-                    {editCell.id === member.id && editCell.field === 'remaining_sessions' ? (
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <TextField
-                          value={editValue}
-                          onChange={e => setEditValue(e.target.value.replace(/[^0-9]/g, ''))}
-                          size="small"
-                          fullWidth
-                          type="number"
-                          inputProps={{ min: 0 }}
-                        />
-                        <IconButton onClick={() => handleInlineSave(member)} size="small" color="primary"><SaveIcon /></IconButton>
-                        <IconButton onClick={handleInlineCancel} size="small"><CancelIcon /></IconButton>
-                      </Box>
-                    ) : (
-                      <Box sx={{ position: 'relative', minHeight: 32, display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <span>{member.remaining_sessions}회</span>
-                        {member.remaining_sessions < 3 && (
-                          <Chip
-                            label="관리횟수 부족"
-                            color="warning"
+              .map((member) => {
+                console.log('테이블 행 렌더링 - 회원 정보:', member);
+                return (
+                  <TableRow key={member.id}>
+                    <TableCell>{member.name}</TableCell>
+                    <TableCell>{member.gender}</TableCell>
+                    <TableCell>
+                      {member.birth_date} (만 {getKoreanAge(member.birth_date)}세)
+                    </TableCell>
+                    <TableCell>{member.purpose}</TableCell>
+                    <TableCell>{member.phone}</TableCell>
+                    <TableCell>{member.relationship || '-'}</TableCell>
+                    <TableCell sx={{ position: 'relative', minWidth: 120 }}>
+                      <span>{member.notes || '-'}</span>
+                    </TableCell>
+                    <TableCell sx={{ position: 'relative', minWidth: 120 }}>
+                      {editCell.id === member.id && editCell.field === 'remaining_sessions' ? (
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <TextField
+                            value={editValue}
+                            onChange={e => setEditValue(e.target.value.replace(/[^0-9]/g, ''))}
                             size="small"
-                            sx={{
-                              background: '#fff3e0',
-                              color: '#e65100',
-                              fontWeight: 600
-                            }}
+                            fullWidth
+                            type="number"
+                            inputProps={{ min: 0 }}
                           />
-                        )}
-                        <Box sx={{ position: 'absolute', top: 0, right: 0, display: 'flex', gap: 0.5 }}>
-                          <Tooltip title="수정"><IconButton size="small" onClick={() => handleInlineEdit(member.id, 'remaining_sessions', member.remaining_sessions)}><EditIcon fontSize="small" /></IconButton></Tooltip>
-                          <Tooltip title="초기화"><IconButton size="small" onClick={() => handleInlineDelete(member, 'remaining_sessions')}><DeleteIcon fontSize="small" /></IconButton></Tooltip>
+                          <IconButton onClick={() => handleInlineSave(member)} size="small" color="primary"><SaveIcon /></IconButton>
+                          <IconButton onClick={handleInlineCancel} size="small"><CancelIcon /></IconButton>
                         </Box>
+                      ) : (
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                            {(() => {
+                              // 다른 회원이 이 회원의 관리 횟수를 사용하는 경우
+                              const isShared = member.shared_with && JSON.parse(member.shared_with).length > 0;
+                              if (isShared) {
+                                return `${member.remaining_sessions}회`;
+                              }
+                              // 이 회원이 다른 회원의 관리 횟수를 사용하는 경우
+                              const dependsOn = member.depends_on ? JSON.parse(member.depends_on) : [];
+                              if (dependsOn.length > 0) {
+                                const sharedMember = members.find(m => m.id === dependsOn[0]);
+                                if (sharedMember) {
+                                  return `${sharedMember.remaining_sessions}회`;
+                                }
+                              }
+                              return `${member.remaining_sessions}회`;
+                            })()}
+                          </Typography>
+                          {(() => {
+                            // 관리 횟수 부족 뱃지 표시 로직
+                            const isShared = member.shared_with && JSON.parse(member.shared_with).length > 0;
+                            const isDependent = members.some(m => m.shared_with && JSON.parse(m.shared_with).includes(member.id));
+                            const remainingSessions = member.remaining_sessions || 0;
+                            
+                            console.log('회원 정보:', {
+                              id: member.id,
+                              name: member.name,
+                              shared_with: member.shared_with,
+                              isShared,
+                              isDependent,
+                              remainingSessions
+                            });
+                            
+                            if (!isShared && !isDependent && remainingSessions < 3) {
+                              return (
+                                <Chip
+                                  label="관리횟수 부족"
+                                  color="warning"
+                                  size="small"
+                                  sx={{
+                                    background: '#fff3e0',
+                                    color: '#e65100',
+                                    fontWeight: 600
+                                  }}
+                                />
+                              );
+                            }
+                            return null;
+                          })()}
+                          {(() => {
+                            // 관리 횟수 공유 중/의존 중 뱃지 표시 로직
+                            const sharedWith = member.shared_with ? JSON.parse(member.shared_with) : [];
+                            const dependsOn = member.depends_on ? JSON.parse(member.depends_on) : [];
+                            const isShared = sharedWith.length > 0;
+                            const isDependent = dependsOn.length > 0;
+                            
+                            console.log('뱃지 표시 조건:', {
+                              id: member.id,
+                              name: member.name,
+                              sharedWith,
+                              dependsOn,
+                              isShared,
+                              isDependent
+                            });
+                            
+                            // 의존 중인 경우 (다른 회원의 관리 횟수를 사용)
+                            if (isDependent) {
+                              return (
+                                <Chip
+                                  label="관리횟수 의존 중"
+                                  size="small"
+                                  sx={{
+                                    background: '#e3f2fd',
+                                    color: '#1565c0',
+                                    fontWeight: 600
+                                  }}
+                                />
+                              );
+                            }
+                            // 공유 중인 경우 (다른 회원에게 자신의 관리 횟수를 공유)
+                            if (isShared) {
+                              return (
+                                <Chip
+                                  label="관리횟수 공유 중"
+                                  size="small"
+                                  sx={{
+                                    background: '#e8f5e9',
+                                    color: '#2e7d32',
+                                    fontWeight: 600
+                                  }}
+                                />
+                              );
+                            }
+                            return null;
+                          })()}
+                          <Tooltip title="관리 횟수 수정">
+                            <IconButton 
+                              size="small" 
+                              onClick={() => handleInlineEdit(member.id, 'remaining_sessions', member.remaining_sessions)}
+                              sx={{ 
+                                color: '#3C1E1E',
+                                '&:hover': { 
+                                  background: '#f6e7d7'
+                                }
+                              }}
+                            >
+                              <EditIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="관리 횟수 초기화">
+                            <IconButton 
+                              size="small" 
+                              onClick={() => handleInlineDelete(member, 'remaining_sessions')}
+                              sx={{ 
+                                color: '#d32f2f',
+                                '&:hover': { 
+                                  background: '#ffebee'
+                                }
+                              }}
+                            >
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        </Box>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
+                        <Tooltip title="회원 정보 수정">
+                          <Button
+                            onClick={() => {
+                              console.log('수정 버튼 클릭 - 회원 정보:', member);
+                              if (!member || !member.id) {
+                                console.error('회원 정보 또는 ID가 없습니다:', member);
+                                return;
+                              }
+                              handleEditClick({...member, id: member.id.toString()});
+                            }}
+                            size="small"
+                            variant="outlined"
+                            startIcon={<EditIcon />}
+                            sx={{ 
+                              borderColor: '#3C1E1E',
+                              color: '#3C1E1E',
+                              '&:hover': { 
+                                borderColor: '#3C1E1E',
+                                background: '#f6e7d7'
+                              }
+                            }}
+                          >
+                            수정
+                          </Button>
+                        </Tooltip>
+                        <Tooltip title="회원 삭제">
+                          <Button
+                            onClick={() => handleDeleteMember(member.id)}
+                            size="small"
+                            variant="outlined"
+                            startIcon={<DeleteIcon />}
+                            sx={{ 
+                              borderColor: '#d32f2f',
+                              color: '#d32f2f',
+                              '&:hover': { 
+                                borderColor: '#d32f2f',
+                                background: '#ffebee'
+                              }
+                            }}
+                          >
+                            삭제
+                          </Button>
+                        </Tooltip>
                       </Box>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <Box sx={{ display: 'flex', gap: 1 }}>
-                      <Tooltip title="수정">
-                        <IconButton
-                          onClick={() => {
-                            setSelectedMember(member);
-                            setOpenEditDialog(true);
-                          }}
-                          size="small"
-                        >
-                          <EditIcon />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="삭제">
-                        <IconButton
-                          onClick={() => handleDeleteMember(member.id)}
-                          size="small"
-                          color="error"
-                        >
-                          <DeleteIcon />
-                        </IconButton>
-                      </Tooltip>
-                    </Box>
-                  </TableCell>
-                </TableRow>
-              ))}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
           </TableBody>
         </Table>
         <TablePagination
@@ -598,77 +1006,231 @@ const MemberManagement = () => {
         open={openAddDialog} 
         onClose={() => setOpenAddDialog(false)} 
         onAdd={handleAddMember}
+        members={members}
       />
 
       {/* 회원 수정 다이얼로그 */}
-      <Dialog open={openEditDialog} onClose={() => setOpenEditDialog(false)} maxWidth="xs" fullWidth>
-        <DialogTitle>회원 정보 수정</DialogTitle>
-        <DialogContent>
-          {selectedMember && (
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
-              <TextField
-                label="이름"
-                value={selectedMember.name}
-                onChange={(e) => setSelectedMember({ ...selectedMember, name: e.target.value })}
-                fullWidth
-                required
-              />
-              <ToggleButtonGroup
-                value={selectedMember.gender}
-                exclusive
-                onChange={(_, v) => v && setSelectedMember({ ...selectedMember, gender: v })}
-                sx={{ width: '100%' }}
-              >
-                <ToggleButton value="남" sx={{ flex: 1 }}>남</ToggleButton>
-                <ToggleButton value="여" sx={{ flex: 1 }}>여</ToggleButton>
-              </ToggleButtonGroup>
-              <TextField
-                label="생년월일"
-                type="date"
-                value={selectedMember.birth_date}
-                onChange={(e) => setSelectedMember({ ...selectedMember, birth_date: e.target.value })}
-                InputLabelProps={{ shrink: true }}
-                fullWidth
-                required
-              />
-              <ToggleButtonGroup
-                value={selectedMember.purpose}
-                exclusive
-                onChange={(_, v) => v && setSelectedMember({ ...selectedMember, purpose: v })}
-                sx={{ width: '100%' }}
-              >
-                <ToggleButton value="다이어트" sx={{ flex: 1 }}>다이어트</ToggleButton>
-                <ToggleButton value="통증" sx={{ flex: 1 }}>통증</ToggleButton>
-              </ToggleButtonGroup>
-              <TextField
-                label="전화번호"
-                value={selectedMember.phone}
-                onChange={(e) => setSelectedMember({ ...selectedMember, phone: e.target.value })}
-                fullWidth
-                required
-              />
-              <TextField
-                label="소개(관계)"
-                value={selectedMember.relationship}
-                onChange={(e) => setSelectedMember({ ...selectedMember, relationship: e.target.value })}
-                fullWidth
-              />
-              <TextField
-                label="특이사항"
-                value={selectedMember.notes}
-                onChange={(e) => setSelectedMember({ ...selectedMember, notes: e.target.value })}
-                fullWidth
-                multiline
-                minRows={2}
-              />
+      {editMode && (
+        <Dialog 
+          open={editMode} 
+          onClose={() => setEditMode(false)} 
+          maxWidth="sm" 
+          fullWidth
+          PaperProps={{
+            sx: {
+              borderRadius: 2,
+              boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)'
+            }
+          }}
+        >
+          <DialogTitle sx={{ 
+            background: BROWN_BG,
+            color: BROWN_TEXT,
+            borderBottom: '1px solid #e0cfc0',
+            '& .MuiTypography-root': {
+              fontWeight: 600
+            }
+          }}>
+            회원 정보 수정
+          </DialogTitle>
+          <DialogContent sx={{ mt: 2 }}>
+            <Box sx={{ 
+              display: 'flex', 
+              flexDirection: 'column', 
+              gap: 3,
+              '& .MuiTextField-root': {
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: 1.5
+                }
+              },
+              '& .MuiToggleButtonGroup-root': {
+                borderRadius: 1.5,
+                overflow: 'hidden'
+              }
+            }}>
+              <Grid container spacing={2}>
+                <Grid item xs={12}>
+                  <TextField
+                    label="이름"
+                    value={editedMember.name}
+                    onChange={(e) => setEditedMember(prev => ({ ...prev, name: e.target.value }))}
+                    fullWidth
+                    required
+                    size="small"
+                  />
+                </Grid>
+                <Grid item xs={12}>
+                  <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                    성별
+                  </Typography>
+                  <ToggleButtonGroup
+                    value={editedMember.gender}
+                    exclusive
+                    onChange={(_, v) => v && setEditedMember(prev => ({ ...prev, gender: v }))}
+                    fullWidth
+                    size="small"
+                  >
+                    <ToggleButton value="남" sx={{ flex: 1, py: 1 }}>남</ToggleButton>
+                    <ToggleButton value="여" sx={{ flex: 1, py: 1 }}>여</ToggleButton>
+                  </ToggleButtonGroup>
+                </Grid>
+                <Grid item xs={12}>
+                  <TextField
+                    label="생년월일"
+                    type="date"
+                    value={editedMember.birth_date}
+                    onChange={(e) => setEditedMember(prev => ({ ...prev, birth_date: e.target.value }))}
+                    InputLabelProps={{ shrink: true }}
+                    fullWidth
+                    required
+                    size="small"
+                  />
+                </Grid>
+                <Grid item xs={12}>
+                  <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                    목적
+                  </Typography>
+                  <ToggleButtonGroup
+                    value={editedMember.purpose}
+                    exclusive
+                    onChange={(_, v) => v && setEditedMember(prev => ({ ...prev, purpose: v }))}
+                    fullWidth
+                    size="small"
+                  >
+                    <ToggleButton value="다이어트" sx={{ flex: 1, py: 1 }}>다이어트</ToggleButton>
+                    <ToggleButton value="통증" sx={{ flex: 1, py: 1 }}>통증</ToggleButton>
+                  </ToggleButtonGroup>
+                </Grid>
+                <Grid item xs={12}>
+                  <TextField
+                    label="전화번호"
+                    value={editedMember.phone}
+                    onChange={(e) => setEditedMember(prev => ({ ...prev, phone: e.target.value }))}
+                    fullWidth
+                    required
+                    size="small"
+                  />
+                </Grid>
+                <Grid item xs={12}>
+                  <TextField
+                    label="소개(관계)"
+                    value={editedMember.relationship}
+                    onChange={(e) => setEditedMember(prev => ({ ...prev, relationship: e.target.value }))}
+                    fullWidth
+                    size="small"
+                  />
+                </Grid>
+                <Grid item xs={12}>
+                  <TextField
+                    label="특이사항"
+                    value={editedMember.notes}
+                    onChange={(e) => setEditedMember(prev => ({ ...prev, notes: e.target.value }))}
+                    fullWidth
+                    multiline
+                    minRows={2}
+                    size="small"
+                  />
+                </Grid>
+                <Grid item xs={12}>
+                  <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                    관리 횟수 연결
+                  </Typography>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                    <Autocomplete
+                      options={members.filter(m => m.id !== editedMember.id && !sharedMembers.find(sm => sm.id === m.id))}
+                      getOptionLabel={(option) => {
+                        const isShared = option.shared_with && JSON.parse(option.shared_with).length > 0;
+                        const isDependent = members.some(m => m.shared_with && JSON.parse(m.shared_with).includes(option.id));
+                        let label = `${option.name} (${option.phone})`;
+                        if (isShared) {
+                          label += ' [관리횟수 공유 중]';
+                        } else if (isDependent) {
+                          label += ' [관리횟수 의존 중]';
+                        }
+                        return label;
+                      }}
+                      value={selectedSharedMember}
+                      onChange={handleSharedMemberChange}
+                      renderInput={(params) => (
+                        <TextField
+                          {...params}
+                          size="small"
+                          placeholder="관리 횟수 연결 대상자 검색"
+                        />
+                      )}
+                    />
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                      {sharedMembers.map((member) => {
+                        const isShared = editedMember.shared_with && JSON.parse(editedMember.shared_with).includes(member.id);
+                        const isDependent = editedMember.depends_on && JSON.parse(editedMember.depends_on).includes(member.id);
+                        
+                        return (
+                          <Chip
+                            key={member.id}
+                            label={`${member.name} (${member.phone})${isShared ? ' [공유 중]' : isDependent ? ' [의존 중]' : ''}`}
+                            onDelete={() => handleRemoveSharedMember(member.id)}
+                            sx={{
+                              backgroundColor: isShared ? '#e8f5e9' : '#e3f2fd',
+                              color: isShared ? '#2e7d32' : '#1565c0',
+                              '& .MuiChip-deleteIcon': {
+                                color: isShared ? '#2e7d32' : '#1565c0',
+                                '&:hover': {
+                                  color: isShared ? '#1b5e20' : '#0d47a1'
+                                }
+                              }
+                            }}
+                          />
+                        );
+                      })}
+                    </Box>
+                  </Box>
+                </Grid>
+              </Grid>
             </Box>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpenEditDialog(false)}>취소</Button>
-          <Button onClick={handleEditMember} variant="contained">저장</Button>
-        </DialogActions>
-      </Dialog>
+          </DialogContent>
+          <DialogActions sx={{ 
+            background: BROWN_BG,
+            borderTop: '1px solid #e0cfc0',
+            p: 2,
+            gap: 1
+          }}>
+            <Button 
+              onClick={() => setEditMode(false)}
+              variant="outlined"
+              sx={{ 
+                borderColor: BROWN_TEXT,
+                color: BROWN_TEXT,
+                '&:hover': { 
+                  borderColor: BROWN_TEXT,
+                  background: '#e0cfc0'
+                }
+              }}
+            >
+              취소
+            </Button>
+            <Button 
+              onClick={() => {
+                console.log('저장 버튼 클릭 - 현재 editedMember:', editedMember);
+                if (!editedMember || !editedMember.id) {
+                  console.error('저장 시도 - 회원 정보가 없습니다:', editedMember);
+                  return;
+                }
+                handleSaveClick();
+              }} 
+              variant="contained"
+              sx={{ 
+                background: BROWN_TEXT,
+                color: '#fff',
+                '&:hover': { 
+                  background: '#2c1810'
+                }
+              }}
+            >
+              저장
+            </Button>
+          </DialogActions>
+        </Dialog>
+      )}
     </Box>
   );
 };
