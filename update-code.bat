@@ -18,9 +18,8 @@ if not exist "src\pages\PatchNotes.js" (
 )
 
 set "current_version="
-for /f "tokens=*" %%a in ('type "src\pages\PatchNotes.js" ^| findstr /C:"version:"') do (
+for /f "tokens=2 delims=:" %%a in ('type "src\pages\PatchNotes.js" ^| findstr /C:"version:"') do (
     set "line=%%a"
-    set "line=!line:version:=!"
     set "line=!line: =!"
     set "line=!line:'=!"
     set "line=!line:,=!"
@@ -48,9 +47,8 @@ set stash_exists=
 
 echo Checking latest version...
 set "latest_version="
-for /f "tokens=*" %%a in ('git show origin/main:src/pages/PatchNotes.js ^| findstr /C:"version:"') do (
+for /f "tokens=2 delims=:" %%a in ('git show origin/main:src/pages/PatchNotes.js ^| findstr /C:"version:"') do (
     set "line=%%a"
-    set "line=!line:version:=!"
     set "line=!line: =!"
     set "line=!line:'=!"
     set "line=!line:,=!"
