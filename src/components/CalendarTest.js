@@ -998,17 +998,22 @@ const CalendarTest = () => {
                           if (eventMember && eventMember.shared_with) {
                             if (Array.isArray(eventMember.shared_with)) {
                               sharedWithArray = eventMember.shared_with;
-                            } else {
+                            } else if (typeof eventMember.shared_with === 'string') {
                               try {
-                                sharedWithArray = JSON.parse(eventMember.shared_with);
+                                const parsed = JSON.parse(eventMember.shared_with);
+                                sharedWithArray = Array.isArray(parsed) ? parsed : [];
                               } catch {
                                 sharedWithArray = [];
                               }
+                            } else {
+                              sharedWithArray = [];
                             }
+                          } else {
+                            sharedWithArray = [];
                           }
                           return (
                             <>
-                              {sharedWithArray.length > 0 && (
+                              {Array.isArray(sharedWithArray) && sharedWithArray.length > 0 && (
                                 <Grid item xs={12}>
                                   <Typography variant="body2" color="text.secondary">
                                     공유 중인 회원
