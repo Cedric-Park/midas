@@ -52,7 +52,8 @@ try {
     `);
 
     for (const appointment of data.appointments) {
-      if (appointment.memberId) {  // memberId가 있는 경우만 처리
+      if (appointment.memberId) {
+        // memberId가 있는 경우만 처리
         try {
           insertAppointment.run(
             appointment.id || Date.now().toString(),
@@ -77,7 +78,8 @@ try {
     `);
 
     for (const session of data.sessionHistory) {
-      if (session.memberId) {  // memberId가 있는 경우만 처리
+      if (session.memberId) {
+        // memberId가 있는 경우만 처리
         try {
           insertSession.run(
             session.id || Date.now().toString(),
@@ -96,11 +98,10 @@ try {
   // 트랜잭션 커밋
   db.prepare('COMMIT').run();
   console.log('데이터 복원이 완료되었습니다.');
-
 } catch (error) {
   // 에러 발생 시 롤백
   db.prepare('ROLLBACK').run();
   console.error('데이터 복원 중 오류 발생:', error);
 } finally {
   db.close();
-} 
+}

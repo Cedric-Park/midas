@@ -1,60 +1,29 @@
-const sqlite3 = require('sqlite3').verbose();
-const path = require('path');
+const db = require('./src/db/knex');
 
-// 데이터베이스 연결
-const db = new sqlite3.Database(path.join(__dirname, 'midas.db'), (err) => {
-  if (err) {
-    console.error('데이터베이스 연결 실패:', err);
-    process.exit(1);
-  }
-  console.log('데이터베이스 연결 성공');
-});
-
-// 트랜잭션 시작
-db.serialize(() => {
-  db.run('BEGIN TRANSACTION');
-
+async function deleteAppointments() {
   try {
-    // 5월 10일 예약 삭제
-    db.run(`
-      DELETE FROM appointments 
-      WHERE date(start) = '2024-05-10'
-    `, [], function(err) {
-      if (err) {
-        console.error('5월 10일 예약 삭제 실패:', err);
-        db.run('ROLLBACK');
-        process.exit(1);
-      }
-      console.log(`5월 10일 예약 ${this.changes}개가 삭제되었습니다.`);
-      
-      // 완료된 예약 삭제
-      db.run(`
-        DELETE FROM appointments 
-        WHERE status = 'completed'
-      `, [], function(err) {
-        if (err) {
-          console.error('완료된 예약 삭제 실패:', err);
-          db.run('ROLLBACK');
-          process.exit(1);
-        }
-        console.log(`완료된 예약 ${this.changes}개가 삭제되었습니다.`);
-        
-        // 트랜잭션 커밋
-        db.run('COMMIT', (err) => {
-          if (err) {
-            console.error('커밋 실패:', err);
-            db.run('ROLLBACK');
-            process.exit(1);
-          }
-          console.log('예약 삭제 완료');
-          db.close();
-        });
-      });
-    });
+    // 먼저 members 테이블의 ID 목록을 가져옵니다
+    const members = await db('members').select('id');
+    const validMemberIds = members.map(m => m.id);
+
+    // 잘못된 memberId를 가진 예약들을 조회
+    const appointments = await db('appointments')
+      .whereNotIn('memberId', validMemberIds)
+      .select('*');
+    
+    console.log('삭제할 예약 목록:', appointments);
+
+    // 잘못된 memberId를 가진 예약 삭제
+    const deleted = await db('appointments')
+      .whereNotIn('memberId', validMemberIds)
+      .del();
+
+    console.log(`총 ${deleted}개의 예약이 삭제되었습니다.`);
   } catch (error) {
     console.error('예약 삭제 중 오류 발생:', error);
-    db.run('ROLLBACK');
-    db.close();
-    process.exit(1);
+  } finally {
+    process.exit();
   }
-}); 
+}
+
+deleteAppointments();

@@ -17,16 +17,14 @@ db.serialize(() => {
 
   // treatmentHistory 데이터 마이그레이션
   if (dbInfo.treatmentHistory && Array.isArray(dbInfo.treatmentHistory)) {
-    const stmt = db.prepare('INSERT INTO treatmentHistory (patientId, date, note) VALUES (?, ?, ?)');
-    
+    const stmt = db.prepare(
+      'INSERT INTO treatmentHistory (patientId, date, note) VALUES (?, ?, ?)'
+    );
+
     dbInfo.treatmentHistory.forEach(history => {
-      stmt.run(
-        history.patientId,
-        history.date,
-        history.note
-      );
+      stmt.run(history.patientId, history.date, history.note);
     });
-    
+
     stmt.finalize();
     console.log('treatmentHistory 데이터 마이그레이션 완료');
   } else {
@@ -34,4 +32,4 @@ db.serialize(() => {
   }
 });
 
-db.close(); 
+db.close();

@@ -6,7 +6,8 @@ try {
   db.prepare('BEGIN TRANSACTION').run();
 
   // 1. 새로운 members 테이블 생성
-  db.prepare(`
+  db.prepare(
+    `
     CREATE TABLE IF NOT EXISTS members (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
@@ -20,16 +21,20 @@ try {
       last_visit TEXT,
       relationship TEXT
     )
-  `).run();
+  `
+  ).run();
 
   // 2. 기존 patients 테이블의 데이터를 members 테이블로 복사
-  db.prepare(`
+  db.prepare(
+    `
     INSERT INTO members 
     SELECT * FROM patients
-  `).run();
+  `
+  ).run();
 
   // 3. appointments 테이블의 patientId를 memberId로 변경
-  db.prepare(`
+  db.prepare(
+    `
     CREATE TABLE appointments_new (
       id TEXT PRIMARY KEY,
       memberId TEXT NOT NULL,
@@ -38,16 +43,20 @@ try {
       status TEXT NOT NULL,
       FOREIGN KEY (memberId) REFERENCES members(id)
     )
-  `).run();
+  `
+  ).run();
 
-  db.prepare(`
+  db.prepare(
+    `
     INSERT INTO appointments_new 
     SELECT id, patientId as memberId, start, end, status 
     FROM appointments
-  `).run();
+  `
+  ).run();
 
   // 4. treatmentHistory 테이블의 patientId를 memberId로 변경
-  db.prepare(`
+  db.prepare(
+    `
     CREATE TABLE treatmentHistory_new (
       id TEXT PRIMARY KEY,
       memberId TEXT NOT NULL,
@@ -55,13 +64,16 @@ try {
       note TEXT NOT NULL,
       FOREIGN KEY (memberId) REFERENCES members(id)
     )
-  `).run();
+  `
+  ).run();
 
-  db.prepare(`
+  db.prepare(
+    `
     INSERT INTO treatmentHistory_new 
     SELECT id, patientId as memberId, date, note 
     FROM treatmentHistory
-  `).run();
+  `
+  ).run();
 
   // 5. 기존 테이블 삭제
   db.prepare('DROP TABLE IF EXISTS patients').run();
@@ -74,7 +86,7 @@ try {
 
   // 트랜잭션 커밋
   db.prepare('COMMIT').run();
-  
+
   console.log('데이터베이스 마이그레이션이 성공적으로 완료되었습니다.');
 } catch (error) {
   // 에러 발생 시 롤백
@@ -82,4 +94,4 @@ try {
   console.error('데이터베이스 마이그레이션 중 오류 발생:', error);
 } finally {
   db.close();
-} 
+}

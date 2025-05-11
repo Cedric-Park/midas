@@ -1,15 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Container, 
-  Paper, 
-  TextField, 
-  Select, 
-  MenuItem, 
-  Button, 
-  FormControl, 
-  InputLabel, 
-  Box, 
-  Typography 
+import {
+  Container,
+  Paper,
+  TextField,
+  Select,
+  MenuItem,
+  Button,
+  FormControl,
+  InputLabel,
+  Box,
+  Typography,
 } from '@mui/material';
 import axios from 'axios';
 
@@ -47,13 +47,16 @@ const MemberInfo = ({ match }) => {
   return (
     <Container maxWidth="md" style={{ marginTop: '20px' }}>
       <Paper elevation={3} style={{ padding: '20px' }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: 2,
+          }}
+        >
           <Typography variant="h5">Member Information</Typography>
-          <Button
-            variant="contained"
-            color="primary"
-            onClick={() => setEditMode(!editMode)}
-          >
+          <Button variant="contained" color="primary" onClick={() => setEditMode(!editMode)}>
             {editMode ? 'Cancel' : 'Edit'}
           </Button>
         </Box>
@@ -62,7 +65,7 @@ const MemberInfo = ({ match }) => {
           <TextField
             label="Name"
             value={member.name}
-            onChange={(e) => setMember({ ...member, name: e.target.value })}
+            onChange={e => setMember({ ...member, name: e.target.value })}
             fullWidth
             disabled={!editMode}
           />
@@ -71,7 +74,7 @@ const MemberInfo = ({ match }) => {
             <InputLabel>Gender</InputLabel>
             <Select
               value={member.gender}
-              onChange={(e) => setMember({ ...member, gender: e.target.value })}
+              onChange={e => setMember({ ...member, gender: e.target.value })}
             >
               <MenuItem value="male">Male</MenuItem>
               <MenuItem value="female">Female</MenuItem>
@@ -83,7 +86,7 @@ const MemberInfo = ({ match }) => {
             label="Date of Birth"
             type="date"
             value={member.dateOfBirth}
-            onChange={(e) => setMember({ ...member, dateOfBirth: e.target.value })}
+            onChange={e => setMember({ ...member, dateOfBirth: e.target.value })}
             fullWidth
             disabled={!editMode}
             InputLabelProps={{ shrink: true }}
@@ -93,7 +96,7 @@ const MemberInfo = ({ match }) => {
             <InputLabel>Purpose</InputLabel>
             <Select
               value={member.purpose}
-              onChange={(e) => setMember({ ...member, purpose: e.target.value })}
+              onChange={e => setMember({ ...member, purpose: e.target.value })}
             >
               <MenuItem value="pain_management">Pain Management</MenuItem>
               <MenuItem value="diet">Diet</MenuItem>
@@ -103,7 +106,7 @@ const MemberInfo = ({ match }) => {
           <TextField
             label="Phone Number"
             value={member.phoneNumber}
-            onChange={(e) => setMember({ ...member, phoneNumber: e.target.value })}
+            onChange={e => setMember({ ...member, phoneNumber: e.target.value })}
             fullWidth
             disabled={!editMode}
           />
@@ -111,7 +114,7 @@ const MemberInfo = ({ match }) => {
           <TextField
             label="Notes"
             value={member.notes}
-            onChange={(e) => setMember({ ...member, notes: e.target.value })}
+            onChange={e => setMember({ ...member, notes: e.target.value })}
             multiline
             rows={4}
             fullWidth
@@ -121,17 +124,12 @@ const MemberInfo = ({ match }) => {
           <TextField
             label="Points"
             value={member.points}
-            onChange={(e) => setMember({ ...member, points: parseInt(e.target.value) })}
+            onChange={e => setMember({ ...member, points: parseInt(e.target.value) })}
             fullWidth
             disabled={!editMode}
           />
 
-          <TextField
-            label="Join Date"
-            value={member.joinDate}
-            fullWidth
-            disabled
-          />
+          <TextField label="Join Date" value={member.joinDate} fullWidth disabled />
 
           <TextField
             label="Last Visit Date"

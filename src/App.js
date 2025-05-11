@@ -5,7 +5,15 @@ import CssBaseline from '@mui/material/CssBaseline';
 import CalendarTest from './components/CalendarTest';
 import MemberManagement from './pages/MemberManagement';
 import PatchNotes from './pages/PatchNotes';
-import { AppBar, Toolbar, Typography, Box, Autocomplete, TextField, IconButton } from '@mui/material';
+import {
+  AppBar,
+  Toolbar,
+  Typography,
+  Box,
+  Autocomplete,
+  TextField,
+  IconButton,
+} from '@mui/material';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import PeopleIcon from '@mui/icons-material/People';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
@@ -140,11 +148,13 @@ function App() {
     if (newValue) {
       setOpenPatientDialog(true);
       try {
-        const memberResponse = await axios.get(`http://localhost:3001/members/${newValue.id}`);
+        const memberResponse = await axios.get(`http://localhost:3001/api/members/${newValue.id}`);
         const updatedMember = memberResponse.data;
         setSearchPatient(updatedMember);
-        
-        const response = await axios.get(`http://localhost:3001/sessionHistory?memberId=${newValue.id}`);
+
+        const response = await axios.get(
+          `http://localhost:3001/api/sessionHistory?memberId=${newValue.id}`
+        );
         setSessionHistory(response.data);
       } catch (error) {
         console.error('회원 정보를 불러오는데 실패했습니다:', error);
@@ -156,7 +166,7 @@ function App() {
   // 회원 목록 새로고침 함수
   const refreshPatients = async () => {
     try {
-      const response = await axios.get('http://localhost:3001/members');
+      const response = await axios.get('http://localhost:3001/api/members');
       setPatients(response.data);
     } catch (error) {
       console.error('회원 데이터를 불러오는데 실패했습니다:', error);
@@ -190,11 +200,11 @@ function App() {
     try {
       const updatedPatient = {
         ...searchPatient,
-        remaining_sessions: searchPatient.remaining_sessions + Number(chargeAmount)
+        remaining_sessions: searchPatient.remaining_sessions + Number(chargeAmount),
       };
-      await axios.patch(`http://localhost:3001/members/${searchPatient.id}`, {
+      await axios.patch(`http://localhost:3001/api/members/${searchPatient.id}`, {
         ...searchPatient,
-        remaining_sessions: updatedPatient.remaining_sessions
+        remaining_sessions: updatedPatient.remaining_sessions,
       });
       setSearchPatient(updatedPatient);
       setChargeAmount('');
@@ -202,21 +212,6 @@ function App() {
     } catch (error) {
       console.error('관리횟수 충전에 실패했습니다:', error);
       alert('관리횟수 충전에 실패했습니다.');
-    }
-  };
-
-  const handleUpdatePatient = async (searchPatient) => {
-    try {
-      await axios.patch(`http://localhost:3001/members/${searchPatient.id}`, {
-        last_visit: new Date().toISOString().split('T')[0]
-      });
-      setPatients(patients.map(patient => 
-        patient.id === searchPatient.id 
-          ? { ...patient, last_visit: new Date().toISOString().split('T')[0] }
-          : patient
-      ));
-    } catch (error) {
-      console.error('회원 정보 업데이트에 실패했습니다:', error);
     }
   };
 
@@ -239,7 +234,7 @@ function App() {
     setSelectedSharedMember(null);
   };
 
-  const handleRemoveSharedMember = (memberId) => {
+  const handleRemoveSharedMember = memberId => {
     setSharedMembers(sharedMembers.filter(m => m.id !== memberId));
   };
 
@@ -247,11 +242,11 @@ function App() {
     try {
       // 연결된 회원들의 shared_with 필드도 업데이트
       const sharedIds = sharedMembers.map(m => m.id);
-      
+
       // 현재 회원의 shared_with 업데이트
-      await axios.patch(`http://localhost:3001/members/${searchPatient.id}`, {
+      await axios.patch(`http://localhost:3001/api/members/${searchPatient.id}`, {
         ...editedPatient,
-        shared_with: JSON.stringify(sharedIds)
+        shared_with: JSON.stringify(sharedIds),
       });
 
       // 연결된 회원들의 shared_with 업데이트
@@ -260,37 +255,41 @@ function App() {
         if (member) {
           const currentSharedWith = member.shared_with ? JSON.parse(member.shared_with) : [];
           if (!currentSharedWith.includes(searchPatient.id)) {
-            await axios.patch(`http://localhost:3001/members/${memberId}`, {
-              shared_with: JSON.stringify([...currentSharedWith, searchPatient.id])
+            await axios.patch(`http://localhost:3001/api/members/${memberId}`, {
+              shared_with: JSON.stringify([...currentSharedWith, searchPatient.id]),
             });
           }
         }
       }
 
       // 이전에 연결되어 있던 회원들의 shared_with에서 현재 회원 제거
-      const previousSharedWith = searchPatient.shared_with ? JSON.parse(searchPatient.shared_with) : [];
+      const previousSharedWith = searchPatient.shared_with
+        ? JSON.parse(searchPatient.shared_with)
+        : [];
       const removedMembers = previousSharedWith.filter(id => !sharedIds.includes(id));
-      
+
       for (const memberId of removedMembers) {
         const member = patients.find(p => p.id === memberId);
         if (member) {
           const currentSharedWith = JSON.parse(member.shared_with);
-          await axios.patch(`http://localhost:3001/members/${memberId}`, {
-            shared_with: JSON.stringify(currentSharedWith.filter(id => id !== searchPatient.id))
+          await axios.patch(`http://localhost:3001/api/members/${memberId}`, {
+            shared_with: JSON.stringify(currentSharedWith.filter(id => id !== searchPatient.id)),
           });
         }
       }
 
       // 회원 정보 업데이트 후 서버에서 최신 데이터를 다시 가져옴
-      const updatedMemberResponse = await axios.get(`http://localhost:3001/members/${searchPatient.id}`);
+      const updatedMemberResponse = await axios.get(
+        `http://localhost:3001/api/members/${searchPatient.id}`
+      );
       setSearchPatient(updatedMemberResponse.data);
-      
+
       // 전체 회원 목록도 새로고침
-      const allMembersResponse = await axios.get('http://localhost:3001/members');
+      const allMembersResponse = await axios.get('http://localhost:3001/api/members');
       setPatients(allMembersResponse.data);
-      
+
       setEditMode(false);
-      
+
       // 회원 변경 이벤트 발생
       window.dispatchEvent(new Event('memberChange'));
     } catch (error) {
@@ -304,7 +303,9 @@ function App() {
     const handleMemberChange = async () => {
       if (searchPatient) {
         try {
-          const memberResponse = await axios.get(`http://localhost:3001/members/${searchPatient.id}`);
+          const memberResponse = await axios.get(
+            `http://localhost:3001/api/members/${searchPatient.id}`
+          );
           setSearchPatient(memberResponse.data);
         } catch (error) {
           console.error('회원 정보를 불러오는데 실패했습니다:', error);
@@ -323,21 +324,21 @@ function App() {
     setEditedPatient(null);
   };
 
-  const handleDeleteSession = async (sessionId) => {
+  const handleDeleteSession = async sessionId => {
     if (!window.confirm('정말로 이 관리 내역을 삭제하시겠습니까?')) return;
     try {
-      await axios.delete(`http://localhost:3001/sessionHistory/${sessionId}`);
-      setSessionHistory(sessionHistory.filter((h) => h.id !== sessionId));
+      await axios.delete(`http://localhost:3001/api/sessionHistory/${sessionId}`);
+      setSessionHistory(sessionHistory.filter(h => h.id !== sessionId));
     } catch (error) {
       alert('관리 내역 삭제에 실패했습니다.');
     }
   };
 
-  const handleEditSession = (session) => {
+  const handleEditSession = session => {
     setEditSessionId(session.id);
     const d = new Date(session.date);
     const pad = n => n.toString().padStart(2, '0');
-    const local = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    const local = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
     setEditSessionDate(local);
     setEditSessionNote(session.note);
   };
@@ -353,23 +354,25 @@ function App() {
     try {
       // 날짜를 항상 ISO 문자열로 변환
       isoDate = new Date(editSessionDate).toISOString();
-      await axios.patch(`http://localhost:3001/sessionHistory/${editSessionId}`, {
+      await axios.patch(`http://localhost:3001/api/sessionHistory/${editSessionId}`, {
         date: isoDate,
-        note: editSessionNote
+        note: editSessionNote,
       });
       // 저장 후 서버에서 다시 불러오기
       if (searchPatient) {
-        const response = await axios.get(`http://localhost:3001/sessionHistory?memberId=${searchPatient.id}`);
+        const response = await axios.get(
+          `http://localhost:3001/api/sessionHistory?memberId=${searchPatient.id}`
+        );
         setSessionHistory(response.data);
       }
       handleCancelEditSession();
     } catch (error) {
       console.error('세션 수정에 실패했습니다.', {
-        url: `http://localhost:3001/sessionHistory/${editSessionId}`,
+        url: `http://localhost:3001/api/sessionHistory/${editSessionId}`,
         date: editSessionDate,
         isoDate,
         note: editSessionNote,
-        error
+        error,
       });
       alert('세션 수정에 실패했습니다.');
     }
@@ -394,18 +397,27 @@ function App() {
                 <IconButton component={Link} to="/members" sx={{ color: 'primary.contrastText' }}>
                   <PeopleIcon />
                 </IconButton>
-                <IconButton component={Link} to="/patch-notes" sx={{ color: 'primary.contrastText' }}>
+                <IconButton
+                  component={Link}
+                  to="/patch-notes"
+                  sx={{ color: 'primary.contrastText' }}
+                >
                   <TrendingUpIcon />
                 </IconButton>
               </Box>
               <Box sx={{ flex: 1, display: 'flex', justifyContent: 'flex-end' }}>
                 <Autocomplete
                   options={patients}
-                  getOptionLabel={(option) => `${option.name} (${option.phone})`}
+                  getOptionLabel={option => `${option.name} (${option.phone})`}
                   value={searchPatient}
                   onChange={handlePatientSelect}
-                  renderInput={(params) => (
-                    <TextField {...params} label="회원 검색" size="small" sx={{ minWidth: 220, background: '#fff', borderRadius: 1 }} />
+                  renderInput={params => (
+                    <TextField
+                      {...params}
+                      label="회원 검색"
+                      size="small"
+                      sx={{ minWidth: 220, background: '#fff', borderRadius: 1 }}
+                    />
                   )}
                   sx={{ width: 240, background: '#fff', borderRadius: 1 }}
                   isOptionEqualToValue={(option, value) => option.id === value.id}
@@ -432,20 +444,28 @@ function App() {
             </Box>
           </Box>
           <Footer />
-          <Dialog open={openPatientDialog} onClose={() => setOpenPatientDialog(false)} maxWidth="sm" fullWidth>
+          <Dialog
+            open={openPatientDialog}
+            onClose={() => setOpenPatientDialog(false)}
+            maxWidth="sm"
+            fullWidth
+          >
             <DialogTitle>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <Typography variant="h6">회원 정보</Typography>
-                <Chip 
-                  label="회원" 
-                  color="primary"
-                />
+                <Chip label="회원" color="primary" />
               </Box>
             </DialogTitle>
             <DialogContent>
               {searchPatient && (
                 <Box sx={{ mt: 2, borderRadius: 6, background: '#fff', p: 2 }}>
-                  <Tabs value={activeTab} onChange={handleTabChange} sx={{ mb: 2, background: BROWN_BG, borderRadius: 2 }} textColor="secondary" indicatorColor="secondary">
+                  <Tabs
+                    value={activeTab}
+                    onChange={handleTabChange}
+                    sx={{ mb: 2, background: BROWN_BG, borderRadius: 2 }}
+                    textColor="secondary"
+                    indicatorColor="secondary"
+                  >
                     <Tab label="회원 정보1" />
                     <Tab label="관리 내역" />
                   </Tabs>
@@ -458,46 +478,67 @@ function App() {
                             <Typography variant="h6">{searchPatient.name}</Typography>
                           </Grid>
                           <Grid item xs={6}>
-                            <Typography variant="body2" color="text.secondary">성별</Typography>
+                            <Typography variant="body2" color="text.secondary">
+                              성별
+                            </Typography>
                             <Typography variant="body1">{searchPatient.gender}</Typography>
                           </Grid>
                           <Grid item xs={6}>
-                            <Typography variant="body2" color="text.secondary">생년월일</Typography>
+                            <Typography variant="body2" color="text.secondary">
+                              생년월일
+                            </Typography>
                             {editMode ? (
                               <TextField
                                 type="date"
                                 value={editedPatient.birth_date}
-                                onChange={(e) => setEditedPatient({ ...editedPatient, birth_date: e.target.value })}
+                                onChange={e =>
+                                  setEditedPatient({ ...editedPatient, birth_date: e.target.value })
+                                }
                                 fullWidth
                                 size="small"
                                 InputLabelProps={{ shrink: true }}
                               />
                             ) : (
-                              <Typography variant="body1">{searchPatient.birth_date} (만 {getKoreanAge(searchPatient.birth_date)}세)</Typography>
+                              <Typography variant="body1">
+                                {searchPatient.birth_date} (만{' '}
+                                {getKoreanAge(searchPatient.birth_date)}세)
+                              </Typography>
                             )}
                           </Grid>
                           <Grid item xs={6}>
-                            <Typography variant="body2" color="text.secondary">목적</Typography>
+                            <Typography variant="body2" color="text.secondary">
+                              목적
+                            </Typography>
                             {editMode ? (
                               <ToggleButtonGroup
                                 value={editedPatient.purpose}
                                 exclusive
-                                onChange={(_, v) => v && setEditedPatient({ ...editedPatient, purpose: v })}
+                                onChange={(_, v) =>
+                                  v && setEditedPatient({ ...editedPatient, purpose: v })
+                                }
                                 sx={{ width: '100%' }}
                               >
-                                <ToggleButton value="다이어트" sx={{ flex: 1 }}>다이어트</ToggleButton>
-                                <ToggleButton value="통증" sx={{ flex: 1 }}>통증</ToggleButton>
+                                <ToggleButton value="다이어트" sx={{ flex: 1 }}>
+                                  다이어트
+                                </ToggleButton>
+                                <ToggleButton value="통증" sx={{ flex: 1 }}>
+                                  통증
+                                </ToggleButton>
                               </ToggleButtonGroup>
                             ) : (
                               <Typography variant="body1">{searchPatient.purpose}</Typography>
                             )}
                           </Grid>
                           <Grid item xs={6}>
-                            <Typography variant="body2" color="text.secondary">전화번호</Typography>
+                            <Typography variant="body2" color="text.secondary">
+                              전화번호
+                            </Typography>
                             {editMode ? (
                               <TextField
                                 value={editedPatient.phone}
-                                onChange={(e) => setEditedPatient({ ...editedPatient, phone: e.target.value })}
+                                onChange={e =>
+                                  setEditedPatient({ ...editedPatient, phone: e.target.value })
+                                }
                                 fullWidth
                                 size="small"
                               />
@@ -506,32 +547,49 @@ function App() {
                             )}
                           </Grid>
                           <Grid item xs={6}>
-                            <Typography variant="body2" color="text.secondary">회원가입일</Typography>
+                            <Typography variant="body2" color="text.secondary">
+                              회원가입일
+                            </Typography>
                             <Typography variant="body1">{searchPatient.join_date}</Typography>
                           </Grid>
                           <Grid item xs={6}>
-                            <Typography variant="body2" color="text.secondary">최종방문일</Typography>
+                            <Typography variant="body2" color="text.secondary">
+                              최종방문일
+                            </Typography>
                             <Typography variant="body1">{searchPatient.last_visit}</Typography>
                           </Grid>
                           <Grid item xs={12}>
-                            <Typography variant="body2" color="text.secondary">소개(관계)</Typography>
+                            <Typography variant="body2" color="text.secondary">
+                              소개(관계)
+                            </Typography>
                             {editMode ? (
                               <TextField
                                 value={editedPatient.relationship}
-                                onChange={(e) => setEditedPatient({ ...editedPatient, relationship: e.target.value })}
+                                onChange={e =>
+                                  setEditedPatient({
+                                    ...editedPatient,
+                                    relationship: e.target.value,
+                                  })
+                                }
                                 fullWidth
                                 size="small"
                               />
                             ) : (
-                              <Typography variant="body1">{searchPatient.relationship || '-'}</Typography>
+                              <Typography variant="body1">
+                                {searchPatient.relationship || '-'}
+                              </Typography>
                             )}
                           </Grid>
                           <Grid item xs={12}>
-                            <Typography variant="body2" color="text.secondary">특이사항</Typography>
+                            <Typography variant="body2" color="text.secondary">
+                              특이사항
+                            </Typography>
                             {editMode ? (
                               <TextField
                                 value={editedPatient.notes}
-                                onChange={(e) => setEditedPatient({ ...editedPatient, notes: e.target.value })}
+                                onChange={e =>
+                                  setEditedPatient({ ...editedPatient, notes: e.target.value })
+                                }
                                 fullWidth
                                 multiline
                                 rows={2}
@@ -542,28 +600,34 @@ function App() {
                             )}
                           </Grid>
                           <Grid item xs={12}>
-                            <Typography variant="body2" color="text.secondary">관리 횟수 연결</Typography>
+                            <Typography variant="body2" color="text.secondary">
+                              관리 횟수 연결
+                            </Typography>
                             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                               {editMode ? (
                                 <>
                                   <Autocomplete
-                                    options={patients.filter(p => p.id !== searchPatient.id && !sharedMembers.find(m => m.id === p.id))}
-                                    getOptionLabel={(option) => `${option.name} (${option.phone})`}
+                                    options={patients.filter(
+                                      p =>
+                                        p.id !== searchPatient.id &&
+                                        !sharedMembers.find(m => m.id === p.id)
+                                    )}
+                                    getOptionLabel={option => `${option.name} (${option.phone})`}
                                     value={selectedSharedMember}
                                     onChange={handleSharedMemberChange}
-                                    renderInput={(params) => (
-                                      <TextField
-                                        {...params}
-                                        size="small"
-                                        placeholder="회원 검색"
-                                      />
+                                    renderInput={params => (
+                                      <TextField {...params} size="small" placeholder="회원 검색" />
                                     )}
                                   />
                                   <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                                    {sharedMembers.map((member) => {
-                                      const isShared = searchPatient.shared_with && JSON.parse(searchPatient.shared_with).includes(member.id);
-                                      const isDependent = member.shared_with && JSON.parse(member.shared_with).includes(searchPatient.id);
-                                      
+                                    {sharedMembers.map(member => {
+                                      const isShared =
+                                        searchPatient.shared_with &&
+                                        JSON.parse(searchPatient.shared_with).includes(member.id);
+                                      const isDependent =
+                                        member.shared_with &&
+                                        JSON.parse(member.shared_with).includes(searchPatient.id);
+
                                       return (
                                         <Chip
                                           key={member.id}
@@ -575,9 +639,9 @@ function App() {
                                             '& .MuiChip-deleteIcon': {
                                               color: isShared ? '#2e7d32' : '#1565c0',
                                               '&:hover': {
-                                                color: isShared ? '#1b5e20' : '#0d47a1'
-                                              }
-                                            }
+                                                color: isShared ? '#1b5e20' : '#0d47a1',
+                                              },
+                                            },
                                           }}
                                         />
                                       );
@@ -586,44 +650,60 @@ function App() {
                                 </>
                               ) : (
                                 <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                                  {patients.filter(p => {
-                                    // 현재 회원의 shared_with에 있는 회원들
-                                    const isInSharedWith = searchPatient.shared_with && JSON.parse(searchPatient.shared_with).includes(p.id);
-                                    // 현재 회원이 다른 회원의 shared_with에 있는 경우
-                                    const isDependentOn = p.shared_with && JSON.parse(p.shared_with).includes(searchPatient.id);
-                                    return isInSharedWith || isDependentOn;
-                                  }).map((member) => {
-                                    const isShared = searchPatient.shared_with && JSON.parse(searchPatient.shared_with).includes(member.id);
-                                    const isDependent = member.shared_with && JSON.parse(member.shared_with).includes(searchPatient.id);
-                                    
-                                    return (
-                                      <Chip
-                                        key={member.id}
-                                        label={`${member.name}${isShared ? '[공유 중]' : isDependent ? '[의존 중]' : ''}`}
-                                        sx={{
-                                          backgroundColor: isShared ? '#e8f5e9' : '#e3f2fd',
-                                          color: isShared ? '#2e7d32' : '#1565c0'
-                                        }}
-                                      />
-                                    );
-                                  })}
+                                  {patients
+                                    .filter(p => {
+                                      // 현재 회원의 shared_with에 있는 회원들
+                                      const isInSharedWith =
+                                        searchPatient.shared_with &&
+                                        JSON.parse(searchPatient.shared_with).includes(p.id);
+                                      // 현재 회원이 다른 회원의 shared_with에 있는 경우
+                                      const isDependentOn =
+                                        p.shared_with &&
+                                        JSON.parse(p.shared_with).includes(searchPatient.id);
+                                      return isInSharedWith || isDependentOn;
+                                    })
+                                    .map(member => {
+                                      const isShared =
+                                        searchPatient.shared_with &&
+                                        JSON.parse(searchPatient.shared_with).includes(member.id);
+                                      const isDependent =
+                                        member.shared_with &&
+                                        JSON.parse(member.shared_with).includes(searchPatient.id);
+
+                                      return (
+                                        <Chip
+                                          key={member.id}
+                                          label={`${member.name}${isShared ? '[공유 중]' : isDependent ? '[의존 중]' : ''}`}
+                                          sx={{
+                                            backgroundColor: isShared ? '#e8f5e9' : '#e3f2fd',
+                                            color: isShared ? '#2e7d32' : '#1565c0',
+                                          }}
+                                        />
+                                      );
+                                    })}
                                 </Box>
                               )}
                             </Box>
                           </Grid>
                           <Grid item xs={12}>
-                            <Typography variant="body2" color="text.secondary">남은 관리횟수</Typography>
+                            <Typography variant="body2" color="text.secondary">
+                              남은 관리횟수
+                            </Typography>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                               {(() => {
                                 // 의존 중인 대상 찾기
-                                const dependentMember = patients.find(p => 
-                                  p.shared_with && JSON.parse(p.shared_with).includes(searchPatient.id)
+                                const dependentMember = patients.find(
+                                  p =>
+                                    p.shared_with &&
+                                    JSON.parse(p.shared_with).includes(searchPatient.id)
                                 );
-                                
+
                                 // 의존 중인 대상이 있으면 그 대상의 횟수를, 없으면 자신의 횟수를 표시
-                                const remainingSessions = dependentMember ? dependentMember.remaining_sessions : searchPatient.remaining_sessions;
+                                const remainingSessions = dependentMember
+                                  ? dependentMember.remaining_sessions
+                                  : searchPatient.remaining_sessions;
                                 const isDependent = !!dependentMember;
-                                
+
                                 return (
                                   <>
                                     <Typography variant="body1">
@@ -631,32 +711,35 @@ function App() {
                                       {isDependent && ` (${dependentMember.name}님의 횟수)`}
                                     </Typography>
                                     {remainingSessions < 3 && (
-                                      <Tooltip title="관리횟수가 부족합니다. 충전이 필요합니다." arrow>
-                                        <Chip 
-                                          label="관리횟수 부족" 
-                                          color="warning" 
+                                      <Tooltip
+                                        title="관리횟수가 부족합니다. 충전이 필요합니다."
+                                        arrow
+                                      >
+                                        <Chip
+                                          label="관리횟수 부족"
+                                          color="warning"
                                           size="small"
-                                          sx={{ 
+                                          sx={{
                                             background: '#fff3e0',
                                             color: '#e65100',
-                                            fontWeight: 600
+                                            fontWeight: 600,
                                           }}
                                         />
                                       </Tooltip>
                                     )}
                                     {!isDependent && (
-                                      <Button 
-                                        variant="outlined" 
-                                        size="small" 
+                                      <Button
+                                        variant="outlined"
+                                        size="small"
                                         onClick={() => setOpenChargeDialog(true)}
-                                        sx={{ 
-                                          background: BROWN_BG, 
-                                          color: BROWN_TEXT, 
+                                        sx={{
+                                          background: BROWN_BG,
+                                          color: BROWN_TEXT,
                                           borderColor: BROWN_TEXT,
-                                          '&:hover': { 
+                                          '&:hover': {
                                             background: '#e0cfc0',
-                                            borderColor: BROWN_TEXT
-                                          } 
+                                            borderColor: BROWN_TEXT,
+                                          },
                                         }}
                                       >
                                         충전
@@ -668,20 +751,22 @@ function App() {
                             </Box>
                           </Grid>
                           <Grid item xs={12}>
-                            <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mt: 2 }}>
+                            <Box
+                              sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mt: 2 }}
+                            >
                               {editMode ? (
                                 <>
                                   <Button
                                     onClick={handleCancelEdit}
                                     variant="outlined"
-                                    sx={{ 
-                                      background: BROWN_BG, 
-                                      color: BROWN_TEXT, 
+                                    sx={{
+                                      background: BROWN_BG,
+                                      color: BROWN_TEXT,
                                       borderColor: BROWN_TEXT,
-                                      '&:hover': { 
+                                      '&:hover': {
                                         background: '#e0cfc0',
-                                        borderColor: BROWN_TEXT
-                                      } 
+                                        borderColor: BROWN_TEXT,
+                                      },
                                     }}
                                   >
                                     취소
@@ -689,12 +774,12 @@ function App() {
                                   <Button
                                     onClick={handleSaveClick}
                                     variant="contained"
-                                    sx={{ 
-                                      background: BROWN_BG, 
-                                      color: BROWN_TEXT, 
-                                      '&:hover': { 
-                                        background: '#e0cfc0'
-                                      } 
+                                    sx={{
+                                      background: BROWN_BG,
+                                      color: BROWN_TEXT,
+                                      '&:hover': {
+                                        background: '#e0cfc0',
+                                      },
                                     }}
                                   >
                                     저장
@@ -704,14 +789,14 @@ function App() {
                                 <Button
                                   onClick={handleEditClick}
                                   variant="outlined"
-                                  sx={{ 
-                                    background: BROWN_BG, 
-                                    color: BROWN_TEXT, 
+                                  sx={{
+                                    background: BROWN_BG,
+                                    color: BROWN_TEXT,
                                     borderColor: BROWN_TEXT,
-                                    '&:hover': { 
+                                    '&:hover': {
                                       background: '#e0cfc0',
-                                      borderColor: BROWN_TEXT
-                                    } 
+                                      borderColor: BROWN_TEXT,
+                                    },
                                   }}
                                 >
                                   수정
@@ -727,7 +812,18 @@ function App() {
                   {activeTab === 1 && (
                     <Box>
                       {sessionHistory.map((history, index) => (
-                        <Paper key={history.id} elevation={0} sx={{ p: 2, mb: 2, backgroundColor: '#f5f5f5', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <Paper
+                          key={history.id}
+                          elevation={0}
+                          sx={{
+                            p: 2,
+                            mb: 2,
+                            backgroundColor: '#f5f5f5',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                          }}
+                        >
                           {editSessionId === history.id ? (
                             <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, gap: 1 }}>
                               <TextField
@@ -756,16 +852,67 @@ function App() {
                               </Typography>
                             </Box>
                           )}
-                          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1, ml: 2 }}>
+                          <Box
+                            sx={{
+                              display: 'flex',
+                              flexDirection: 'column',
+                              alignItems: 'flex-end',
+                              gap: 1,
+                              ml: 2,
+                            }}
+                          >
                             {editSessionId === history.id ? (
                               <>
-                                <IconButton color="primary" onClick={handleSaveEditSession}><SaveIcon /></IconButton>
-                                <IconButton onClick={handleCancelEditSession}><CancelIcon /></IconButton>
+                                <Tooltip title="저장" placement="right">
+                                  <IconButton
+                                    onClick={handleSaveEditSession}
+                                    sx={{
+                                      color: '#3C1E1E',
+                                      '&:hover': {
+                                        background: '#f6e7d7',
+                                      },
+                                    }}
+                                  >
+                                    <SaveIcon />
+                                  </IconButton>
+                                </Tooltip>
+                                <Tooltip title="취소" placement="right">
+                                  <IconButton
+                                    onClick={handleCancelEditSession}
+                                    sx={{
+                                      color: '#3C1E1E',
+                                      '&:hover': {
+                                        background: '#f6e7d7',
+                                      },
+                                    }}
+                                  >
+                                    <CancelIcon />
+                                  </IconButton>
+                                </Tooltip>
                               </>
                             ) : (
                               <>
-                                <IconButton color="primary" onClick={() => handleEditSession(history)}><EditIcon /></IconButton>
-                                <IconButton color="error" onClick={() => handleDeleteSession(history.id)}><DeleteIcon /></IconButton>
+                                <Tooltip title="수정" placement="right">
+                                  <IconButton
+                                    onClick={() => handleEditSession(history)}
+                                    sx={{
+                                      color: '#3C1E1E',
+                                      '&:hover': {
+                                        background: '#f6e7d7',
+                                      },
+                                    }}
+                                  >
+                                    <EditIcon />
+                                  </IconButton>
+                                </Tooltip>
+                                <Tooltip title="삭제" placement="right">
+                                  <IconButton
+                                    color="error"
+                                    onClick={() => handleDeleteSession(history.id)}
+                                  >
+                                    <DeleteIcon />
+                                  </IconButton>
+                                </Tooltip>
                               </>
                             )}
                           </Box>
@@ -776,11 +923,32 @@ function App() {
                 </Box>
               )}
             </DialogContent>
-            <DialogActions sx={{ display: 'flex', flexDirection: 'row', justifyContent: 'space-between', background: BROWN_BG }}>
-              <Button onClick={() => setOpenPatientDialog(false)} sx={{ background: BROWN_BG, color: BROWN_TEXT, '&:hover': { background: '#e0cfc0' } }}>닫기</Button>
+            <DialogActions
+              sx={{
+                display: 'flex',
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                background: BROWN_BG,
+              }}
+            >
+              <Button
+                onClick={() => setOpenPatientDialog(false)}
+                sx={{
+                  background: BROWN_BG,
+                  color: BROWN_TEXT,
+                  '&:hover': { background: '#e0cfc0' },
+                }}
+              >
+                닫기
+              </Button>
             </DialogActions>
           </Dialog>
-          <Dialog open={openChargeDialog} onClose={() => setOpenChargeDialog(false)} maxWidth="xs" fullWidth>
+          <Dialog
+            open={openChargeDialog}
+            onClose={() => setOpenChargeDialog(false)}
+            maxWidth="xs"
+            fullWidth
+          >
             <DialogTitle>관리횟수 충전</DialogTitle>
             <DialogContent>
               <Box sx={{ mt: 2 }}>
@@ -788,30 +956,30 @@ function App() {
                   label="충전할 횟수"
                   type="number"
                   value={chargeAmount}
-                  onChange={(e) => setChargeAmount(e.target.value)}
+                  onChange={e => setChargeAmount(e.target.value)}
                   fullWidth
                   inputProps={{ min: 1 }}
                 />
               </Box>
             </DialogContent>
             <DialogActions sx={{ background: BROWN_BG }}>
-              <Button 
+              <Button
                 onClick={() => setOpenChargeDialog(false)}
-                sx={{ 
-                  background: BROWN_BG, 
-                  color: BROWN_TEXT, 
-                  '&:hover': { background: '#e0cfc0' } 
+                sx={{
+                  background: BROWN_BG,
+                  color: BROWN_TEXT,
+                  '&:hover': { background: '#e0cfc0' },
                 }}
               >
                 취소
               </Button>
-              <Button 
+              <Button
                 onClick={handleCharge}
                 variant="contained"
-                sx={{ 
-                  background: BROWN_BG, 
-                  color: BROWN_TEXT, 
-                  '&:hover': { background: '#e0cfc0' } 
+                sx={{
+                  background: BROWN_BG,
+                  color: BROWN_TEXT,
+                  '&:hover': { background: '#e0cfc0' },
                 }}
               >
                 충전

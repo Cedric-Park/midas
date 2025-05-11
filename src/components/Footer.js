@@ -10,7 +10,7 @@ const Footer = () => {
         px: 2,
         mt: 'auto',
         backgroundColor: '#FFFBEA',
-        textAlign: 'center'
+        textAlign: 'center',
       }}
     >
       <Typography variant="body2" color="#E8E0DE">
@@ -20,4 +20,4 @@ const Footer = () => {
   );
 };
 
-export default Footer; 
+export default Footer;

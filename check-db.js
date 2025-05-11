@@ -17,4 +17,4 @@ console.log('\n=== 세션 내역 수 ===');
 const sessionCount = db.prepare('SELECT COUNT(*) as count FROM sessionHistory').get();
 console.log(sessionCount);
 
-db.close(); 
+db.close();

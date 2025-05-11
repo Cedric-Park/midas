@@ -1,139 +1,129 @@
 import React, { useState } from 'react';
-import { 
-  Container, 
-  Paper, 
-  TextField, 
-  Select, 
-  MenuItem, 
-  Button, 
-  FormControl, 
-  InputLabel, 
-  Box 
+import {
+  Container,
+  Paper,
+  TextField,
+  Select,
+  MenuItem,
+  Button,
+  FormControl,
+  InputLabel,
+  Box,
 } from '@mui/material';
-import { createMember } from '../services/api';
+import axios from 'axios';
 
 const Register = () => {
   const [formData, setFormData] = useState({
     name: '',
     gender: '',
-    dateOfBirth: '',
+    birth_date: '',
     purpose: '',
-    phoneNumber: '',
+    phone: '',
     notes: '',
-    points: 0
+    remaining_sessions: 0,
   });
 
-  const handleChange = (e) => {
+  const handleChange = e => {
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
-      [name]: value
+      [name]: value,
     }));
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async e => {
     e.preventDefault();
     try {
-      await createMember({
+      const today = new Date().toISOString().split('T')[0];
+      const response = await axios.post('http://localhost:3001/api/members', {
         ...formData,
-        joinDate: new Date().toISOString().split('T')[0],
-        lastVisitDate: null
+        join_date: today,
+        last_visit: today,
+        shared_with: '[]',
+        relationship: '',
       });
-      alert('Member registered successfully!');
+      
+      alert('회원이 등록되었습니다!');
       setFormData({
         name: '',
         gender: '',
-        dateOfBirth: '',
+        birth_date: '',
         purpose: '',
-        phoneNumber: '',
+        phone: '',
         notes: '',
-        points: 0
+        remaining_sessions: 0,
       });
     } catch (error) {
-      console.error('Error registering member:', error);
-      alert('Error registering member. Please try again.');
+      console.error('회원 등록 실패:', error);
+      alert('회원 등록에 실패했습니다. 다시 시도해주세요.');
     }
   };
 
   return (
-    <Container maxWidth="sm" style={{ marginTop: '20px' }}>
-      <Paper elevation={3} style={{ padding: '20px' }}>
-        <h2 style={{ textAlign: 'center', marginBottom: '20px' }}>Register New Member</h2>
+    <Container maxWidth="sm">
+      <Paper elevation={3} sx={{ p: 4, mt: 4 }}>
+        <h2>회원 등록</h2>
         <form onSubmit={handleSubmit}>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             <TextField
-              label="Name"
               name="name"
+              label="이름"
               value={formData.name}
               onChange={handleChange}
               required
-              fullWidth
             />
-            
-            <FormControl fullWidth>
-              <InputLabel>Gender</InputLabel>
+            <FormControl>
+              <InputLabel>성별</InputLabel>
               <Select
                 name="gender"
                 value={formData.gender}
                 onChange={handleChange}
                 required
               >
-                <MenuItem value="male">Male</MenuItem>
-                <MenuItem value="female">Female</MenuItem>
-                <MenuItem value="other">Other</MenuItem>
+                <MenuItem value="남">남</MenuItem>
+                <MenuItem value="여">여</MenuItem>
               </Select>
             </FormControl>
-
             <TextField
-              label="Date of Birth"
-              name="dateOfBirth"
+              name="birth_date"
+              label="생년월일"
               type="date"
-              value={formData.dateOfBirth}
+              value={formData.birth_date}
               onChange={handleChange}
               required
-              fullWidth
               InputLabelProps={{ shrink: true }}
             />
-
-            <FormControl fullWidth>
-              <InputLabel>Purpose</InputLabel>
+            <FormControl>
+              <InputLabel>목적</InputLabel>
               <Select
                 name="purpose"
                 value={formData.purpose}
                 onChange={handleChange}
                 required
               >
-                <MenuItem value="pain_management">Pain Management</MenuItem>
-                <MenuItem value="diet">Diet</MenuItem>
+                <MenuItem value="다이어트">다이어트</MenuItem>
+                <MenuItem value="통증">통증</MenuItem>
+                <MenuItem value="재활">재활</MenuItem>
+                <MenuItem value="기타">기타</MenuItem>
               </Select>
             </FormControl>
-
             <TextField
-              label="Phone Number"
-              name="phoneNumber"
-              value={formData.phoneNumber}
+              name="phone"
+              label="전화번호"
+              value={formData.phone}
               onChange={handleChange}
               required
-              fullWidth
             />
-
             <TextField
-              label="Notes"
               name="notes"
-              value={formData.notes}
-              onChange={handleChange}
+              label="비고"
               multiline
               rows={4}
-              fullWidth
+              value={formData.notes}
+              onChange={handleChange}
             />
-
-            <Button
-              type="submit"
-              variant="contained"
-              color="primary"
-              style={{ marginTop: '20px' }}
-            >
-              Register Member
+            <Button type="submit" variant="contained" color="primary">
+              등록
             </Button>
           </Box>
         </form>

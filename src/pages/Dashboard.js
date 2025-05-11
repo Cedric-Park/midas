@@ -3,7 +3,18 @@ import Calendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import listPlugin from '@fullcalendar/list';
-import { Button, Dialog, DialogTitle, DialogContent, DialogActions, TextField, FormControl, InputLabel, Select, MenuItem } from '@mui/material';
+import {
+  Button,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+} from '@mui/material';
 import { getMembers, getReservations, createReservation, deleteReservation } from '../services/api';
 import axios from 'axios';
 
@@ -39,26 +50,26 @@ const Dashboard = () => {
     }
   };
 
-  const handleDateSelect = (arg) => {
+  const handleDateSelect = arg => {
     setSelectedSlot({
       startStr: arg.startStr,
       endStr: arg.endStr,
-      allDay: arg.allDay
+      allDay: arg.allDay,
     });
     setOpenMemberModal(true);
   };
 
-  const handleEventClick = (arg) => {
+  const handleEventClick = arg => {
     setSelectedSlot({
       event: arg.event,
       startStr: arg.event.startStr,
       endStr: arg.event.endStr,
-      allDay: arg.event.allDay
+      allDay: arg.event.allDay,
     });
     setOpenCancelModal(true);
   };
 
-  const handleMemberSelect = (member) => {
+  const handleMemberSelect = member => {
     setSelectedMember(member);
   };
 
@@ -68,10 +79,10 @@ const Dashboard = () => {
         patientId: selectedMember.id,
         start: selectedSlot.startStr,
         end: selectedSlot.endStr,
-        status: 'scheduled'
+        status: 'scheduled',
       };
-      
-      const response = await axios.post('http://localhost:3001/appointments', newAppointment);
+
+      const response = await axios.post('http://localhost:3001/api/appointments', newAppointment);
       setOpenMemberModal(false);
       setSelectedSlot(null);
       setSelectedMember(null);
@@ -84,8 +95,8 @@ const Dashboard = () => {
 
   const cancelReservation = async () => {
     try {
-      await axios.patch(`http://localhost:3001/appointments/${selectedSlot.event.id}`, {
-        status: 'cancelled'
+      await axios.patch(`http://localhost:3001/api/appointments/${selectedSlot.event.id}`, {
+        status: 'cancelled',
       });
       setOpenCancelModal(false);
       setSelectedSlot(null);
@@ -127,7 +138,7 @@ const Dashboard = () => {
         headerToolbar={{
           left: 'prev,next today',
           center: 'title',
-          right: 'dayGridMonth,timeGridWeek,timeGridDay'
+          right: 'dayGridMonth,timeGridWeek,timeGridDay',
         }}
         slotMinTime="08:00:00"
         slotMaxTime="22:00:00"
@@ -137,7 +148,7 @@ const Dashboard = () => {
           title: r.title,
           start: r.startTime,
           end: r.endTime,
-          memberId: r.memberId
+          memberId: r.memberId,
         }))}
         selectable={true}
         select={handleDateSelect}
@@ -151,7 +162,7 @@ const Dashboard = () => {
             <InputLabel>Member</InputLabel>
             <Select
               value={selectedMember?.id || ''}
-              onChange={(e) => {
+              onChange={e => {
                 const member = members.find(m => m.id === e.target.value);
                 handleMemberSelect(member);
               }}
@@ -189,7 +200,7 @@ const Dashboard = () => {
         variant="contained"
         color="primary"
         style={{ marginTop: '20px' }}
-        onClick={() => window.location.href = '/register'}
+        onClick={() => (window.location.href = '/register')}
       >
         Register New Member
       </Button>

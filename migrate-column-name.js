@@ -17,7 +17,8 @@ try {
   db.prepare('DROP TABLE treatmentHistory').run();
 
   // 4. members 테이블 재생성
-  db.prepare(`
+  db.prepare(
+    `
     CREATE TABLE members_new (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
@@ -31,24 +32,28 @@ try {
       last_visit TEXT,
       relationship TEXT
     )
-  `).run();
+  `
+  ).run();
 
   // 5. 데이터 복사
-  db.prepare(`
+  db.prepare(
+    `
     INSERT INTO members_new 
     SELECT 
       id, name, gender, birth_date, purpose, phone, 
       remaining_treatments, 
       notes, join_date, last_visit, relationship
     FROM members
-  `).run();
+  `
+  ).run();
 
   // 6. 기존 members 테이블 삭제 및 새 테이블 이름 변경
   db.prepare('DROP TABLE members').run();
   db.prepare('ALTER TABLE members_new RENAME TO members').run();
 
   // 7. appointments 테이블 재생성
-  db.prepare(`
+  db.prepare(
+    `
     CREATE TABLE appointments (
       id TEXT PRIMARY KEY,
       memberId TEXT NOT NULL,
@@ -57,10 +62,12 @@ try {
       status TEXT NOT NULL,
       FOREIGN KEY (memberId) REFERENCES members(id)
     )
-  `).run();
+  `
+  ).run();
 
   // 8. treatmentHistory 테이블 재생성
-  db.prepare(`
+  db.prepare(
+    `
     CREATE TABLE treatmentHistory (
       id TEXT PRIMARY KEY,
       memberId TEXT NOT NULL,
@@ -68,16 +75,21 @@ try {
       note TEXT NOT NULL,
       FOREIGN KEY (memberId) REFERENCES members(id)
     )
-  `).run();
+  `
+  ).run();
 
   // 9. 데이터 복원
-  db.prepare(`
+  db.prepare(
+    `
     INSERT INTO appointments SELECT * FROM appointments_backup
-  `).run();
+  `
+  ).run();
 
-  db.prepare(`
+  db.prepare(
+    `
     INSERT INTO treatmentHistory SELECT * FROM treatmentHistory_backup
-  `).run();
+  `
+  ).run();
 
   // 10. 백업 테이블 삭제
   db.prepare('DROP TABLE appointments_backup').run();
@@ -88,7 +100,7 @@ try {
 
   // 트랜잭션 커밋
   db.prepare('COMMIT').run();
-  
+
   console.log('컬럼 이름 변경이 성공적으로 완료되었습니다.');
 } catch (error) {
   // 에러 발생 시 롤백
@@ -96,4 +108,4 @@ try {
   console.error('컬럼 이름 변경 중 오류 발생:', error);
 } finally {
   db.close();
-} 
+}

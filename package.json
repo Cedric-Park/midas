@@ -14,11 +14,15 @@
     "@mui/icons-material": "^5.15.0",
     "@mui/material": "^5.15.0",
     "axios": "^1.6.2",
+    "bcryptjs": "^3.0.2",
     "better-sqlite3": "^11.9.1",
     "cors": "^2.8.5",
     "date-fns": "^4.1.0",
+    "dotenv": "^16.5.0",
     "express": "^5.1.0",
     "json-server": "^0.17.4",
+    "jsonwebtoken": "^9.0.2",
+    "knex": "^3.1.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.21.1",
@@ -29,9 +33,20 @@
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
-    "test": "react-scripts test",
+    "test": "jest --detectOpenHandles",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
     "eject": "react-scripts eject",
-    "server": "node server.js"
+    "server": "node server.js",
+    "lint": "eslint . --ext .js,.jsx",
+    "lint:fix": "eslint . --ext .js,.jsx --fix",
+    "format": "prettier --write \"**/*.{js,jsx,json,md}\"",
+    "migrate:make": "knex migrate:make",
+    "migrate:latest": "knex migrate:latest",
+    "migrate:rollback": "knex migrate:rollback",
+    "migrate:status": "knex migrate:status",
+    "seed:make": "knex seed:make",
+    "seed:run": "knex seed:run"
   },
   "eslintConfig": {
     "extends": [
@@ -50,5 +65,17 @@
       "last 1 firefox version",
       "last 1 safari version"
     ]
+  },
+  "devDependencies": {
+    "@babel/core": "^7.27.1",
+    "@babel/preset-env": "^7.27.2",
+    "@babel/preset-react": "^7.27.1",
+    "eslint": "^8.57.1",
+    "eslint-config-prettier": "^10.1.5",
+    "eslint-plugin-prettier": "^5.4.0",
+    "identity-obj-proxy": "^3.0.0",
+    "jest": "^27.5.1",
+    "prettier": "^3.5.3",
+    "supertest": "^7.1.0"
   }
 }

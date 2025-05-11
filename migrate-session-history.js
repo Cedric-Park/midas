@@ -15,7 +15,8 @@ try {
   db.prepare('DROP TABLE IF EXISTS treatmentHistory').run();
 
   // 4. 새로운 테이블 생성
-  db.prepare(`
+  db.prepare(
+    `
     CREATE TABLE sessionHistory (
       id TEXT PRIMARY KEY,
       memberId TEXT NOT NULL,
@@ -23,13 +24,16 @@ try {
       note TEXT NOT NULL,
       FOREIGN KEY (memberId) REFERENCES members(id)
     )
-  `).run();
+  `
+  ).run();
 
   // 5. 데이터 복원
-  db.prepare(`
+  db.prepare(
+    `
     INSERT INTO sessionHistory 
     SELECT * FROM sessionHistory_backup
-  `).run();
+  `
+  ).run();
 
   // 6. 백업 테이블 삭제
   db.prepare('DROP TABLE sessionHistory_backup').run();
@@ -39,7 +43,7 @@ try {
 
   // 트랜잭션 커밋
   db.prepare('COMMIT').run();
-  
+
   console.log('데이터베이스 마이그레이션이 성공적으로 완료되었습니다.');
 } catch (error) {
   // 에러 발생 시 롤백
@@ -47,4 +51,4 @@ try {
   console.error('데이터베이스 마이그레이션 중 오류 발생:', error);
 } finally {
   db.close();
-} 
+}

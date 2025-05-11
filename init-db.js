@@ -70,7 +70,7 @@ data.patients.forEach(patient => {
       remainCount: patient.remainCount || 0,
       relationship: patient.relationship || '',
       joinDate: patient.joinDate || '',
-      lastVisit: patient.lastVisit || ''
+      lastVisit: patient.lastVisit || '',
     });
   } catch (error) {
     console.error('환자 데이터 마이그레이션 실패:', patient.id, error);
@@ -90,7 +90,7 @@ data.appointments.forEach(appointment => {
       patientId: appointment.patientId || '',
       start: appointment.start || '',
       end: appointment.end || '',
-      status: appointment.status || 'scheduled'
+      status: appointment.status || 'scheduled',
     });
   } catch (error) {
     console.error('예약 데이터 마이그레이션 실패:', appointment.id, error);
@@ -109,7 +109,7 @@ data.treatmentHistory.forEach(history => {
       id: history.id || '',
       patientId: history.patientId || '',
       date: history.date || '',
-      note: history.note || ''
+      note: history.note || '',
     });
   } catch (error) {
     console.error('진찰 내역 데이터 마이그레이션 실패:', history.id, error);
@@ -117,4 +117,4 @@ data.treatmentHistory.forEach(history => {
 });
 
 console.log('데이터베이스 초기화 완료');
-db.close(); 
+db.close();

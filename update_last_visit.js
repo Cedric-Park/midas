@@ -17,18 +17,21 @@ try {
   console.log(`${result.changes}명의 환자 마지막 방문일이 업데이트되었습니다.`);
 
   // 업데이트 결과 확인
-  const patients = db.prepare(`
+  const patients = db
+    .prepare(
+      `
     SELECT id, name, lastVisit 
     FROM patients 
     WHERE lastVisit != ''
     LIMIT 5
-  `).all();
+  `
+    )
+    .all();
 
   console.log('\n마지막 방문일이 업데이트된 환자 샘플:');
   console.log(patients);
-
 } catch (error) {
   console.error('에러 발생:', error);
 } finally {
   db.close();
-} 
+}

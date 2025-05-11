@@ -13,4 +13,4 @@ tables.forEach(table => {
   console.log(data);
 });
 
-db.close(); 
+db.close();

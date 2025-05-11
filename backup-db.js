@@ -14,4 +14,4 @@ const backupFile = path.join(backupDir, `midas-${date}.db`);
 
 // 데이터베이스 파일 복사
 fs.copyFileSync('midas.db', backupFile);
-console.log(`백업 완료: ${backupFile}`); 
+console.log(`백업 완료: ${backupFile}`);

@@ -15,4 +15,4 @@ for (const key in data) {
 if (data.members && data.members.length > 0) {
   console.log('\n=== 첫 번째 회원 데이터 예시 ===');
   console.log(data.members[0]);
-} 
+}
