@@ -362,85 +362,70 @@ const CalendarTest = () => {
     };
   }, [eventMember]);
 
-  const handleCompleteTreatment = () => {
+  const handleCompleteTreatment = async () => {
     if (!treatmentNote) {
       alert('세션 내용을 입력해주세요.');
       return;
     }
-
     if (!selectedEvent || !eventMember) {
       alert('회원 정보를 불러오는데 실패했습니다. 다시 시도해주세요.');
       return;
     }
 
-    const newSessionHistory = {
-      memberId: selectedEvent.memberId,
-      date: selectedEvent.start,
-      note: treatmentNote,
-    };
-
-    axios
-      .post('http://localhost:3001/api/sessionHistory', newSessionHistory)
-      .then(response => {
-        return axios.patch(`http://localhost:3001/api/appointments/${selectedEvent.id}`, {
-          status: 'completed',
-          memberId: selectedEvent.memberId,
-          start: selectedEvent.start,
-          end: selectedEvent.end,
-        });
-      })
-      .then(response => {
-        return axios.get('http://localhost:3001/api/appointments');
-      })
-      .then(response => {
-        setAppointments(response.data);
-        if (members.length > 0) {
-          const formattedEvents = response.data
-            .filter(appointment => appointment.start && appointment.end)
-            .map(appointment => {
-              const member = members.find(m => String(m.id) === String(appointment.memberId));
-              let eventStyle = {
-                classNames: ['midas-event'],
-                backgroundColor: '#f6e7d7',
-                borderColor: '#a67c52',
-                textColor: '#3C1E1E',
-              };
-              if (appointment.status === 'completed') {
-                eventStyle = {
-                  classNames: ['midas-event', 'midas-event-completed'],
-                  backgroundColor: '#bdbdbd',
-                  borderColor: '#757575',
-                  textColor: '#212121',
-                };
-              } else if (appointment.status === 'cancelled') {
-                eventStyle = {
-                  classNames: ['midas-event', 'midas-event-cancelled'],
-                  backgroundColor: '#ffcdd2',
-                  borderColor: '#e57373',
-                  textColor: '#b71c1c',
-                };
-              }
-              return {
-                id: appointment.id,
-                title: member ? member.name : 'Unknown Member',
-                start: appointment.start,
-                end: appointment.end,
-                memberId: appointment.memberId,
-                status: appointment.status,
-                ...eventStyle,
-              };
-            });
-          setEvents(formattedEvents);
-        }
-        handleCloseDialog();
-      })
-      .catch(error => {
-        if (error.response && error.response.data && error.response.data.error) {
-          alert(error.response.data.error);
-        } else {
-          alert('예약 생성에 실패했습니다. 다시 시도해주세요.');
-        }
+    try {
+      // 1. 세션 내역 저장
+      await axios.post('http://localhost:3001/api/sessionHistory', {
+        memberId: selectedEvent.memberId,
+        date: selectedEvent.start,
+        note: treatmentNote,
       });
+
+      // 2. 예약 상태 완료 처리
+      await axios.patch(`http://localhost:3001/api/appointments/${selectedEvent.id}`, {
+        status: 'completed',
+        memberId: selectedEvent.memberId,
+        start: selectedEvent.start,
+        end: selectedEvent.end,
+      });
+
+      // 3. 관리횟수 차감 로직
+      if (eventMember.depends_on) {
+        // 의존 중인 경우: 의존 대상자의 관리횟수 차감
+        const dependsOnMember = members.find(m => m.id === eventMember.depends_on);
+        if (dependsOnMember) {
+          const before = dependsOnMember.remaining_sessions || 0;
+          const after = Math.max(0, before - 1);
+          await axios.patch(`http://localhost:3001/api/members/${dependsOnMember.id}`, {
+            remaining_sessions: after,
+          });
+          // 의존 대상자의 sessionHistory에 차감 내역 기록
+          await axios.post('http://localhost:3001/api/sessionHistory', {
+            memberId: dependsOnMember.id,
+            date: selectedEvent.start,
+            note: `✨${eventMember.name}✨님이 관리횟수 1회를 사용했습니다. (${before}회 → ${after}회)`,
+          });
+        }
+      } else {
+        // 공유 중이거나 단독: 본인 관리횟수 차감
+        await axios.patch(`http://localhost:3001/api/members/${eventMember.id}`, {
+          remaining_sessions: Math.max(0, (eventMember.remaining_sessions || 0) - 1),
+        });
+      }
+
+      // 4. appointments, members 등 최신화
+      const appointmentsRes = await axios.get('http://localhost:3001/api/appointments');
+      setAppointments(appointmentsRes.data);
+      const membersRes = await axios.get('http://localhost:3001/api/members');
+      setMembers(membersRes.data);
+
+      handleCloseEventDialog();
+    } catch (error) {
+      if (error.response && error.response.data && error.response.data.error) {
+        alert(error.response.data.error);
+      } else {
+        alert('세션 완료 처리에 실패했습니다. 다시 시도해주세요.');
+      }
+    }
   };
 
   const handleCancelReservation = () => {
@@ -1089,7 +1074,14 @@ const CalendarTest = () => {
                           <Paper
                             key={history.id}
                             elevation={0}
-                            sx={{ p: 2, mb: 2, backgroundColor: '#f5f5f5' }}
+                            sx={{
+                              p: 2,
+                              mb: 2,
+                              backgroundColor:
+                                history.note && history.note.includes('✨')
+                                  ? '#fffde7' // 연노랑(구분용)
+                                  : '#f5f5f5', // 기존 배경
+                            }}
                           >
                             <Typography variant="subtitle1" sx={{ mb: 1 }}>
                               {new Date(history.date).toLocaleString('ko-KR')}

@@ -410,7 +410,7 @@ const MemberManagement = () => {
         phone: selectedMember.phone,
         notes: selectedMember.notes,
         relationship: selectedMember.relationship,
-        shared_with: JSON.stringify(selectedMember.shared_with || []),
+        shared_with: selectedMember.shared_with,
       };
 
       await axios.patch(`http://localhost:3001/api/members/${selectedMember.id}`, updateData);
@@ -478,7 +478,7 @@ const MemberManagement = () => {
         phone: member.phone || '',
         notes: member.notes || '',
         relationship: member.relationship || '',
-        shared_with: JSON.stringify(member.shared_with || []),
+        shared_with: member.shared_with,
         remaining_sessions: Number(editValue) || 0,
         join_date: member.join_date || new Date().toISOString().split('T')[0],
         last_visit: member.last_visit || '',
