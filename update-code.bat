@@ -35,17 +35,20 @@ if not defined current_version (
 
 echo Current version: !current_version!
 
+echo Checking for local changes...
+git diff --quiet || git stash
+
 echo Fetching latest code...
-git fetch origin develop
-if errorlevel 1 (
-    echo Error: Failed to fetch from remote repository.
-    pause
-    exit /b 1
-)
+git pull origin main
+
+REM stash가 있었다면 pop
+for /f "delims=" %%a in ('git stash list') do set stash_exists=1
+if defined stash_exists git stash pop
+set stash_exists=
 
 echo Checking latest version...
 set "latest_version="
-for /f "tokens=*" %%a in ('git show origin/develop:src/pages/PatchNotes.js ^| findstr /C:"version:"') do (
+for /f "tokens=*" %%a in ('git show origin/main:src/pages/PatchNotes.js ^| findstr /C:"version:"') do (
     set "line=%%a"
     set "line=!line:version:=!"
     set "line=!line: =!"
@@ -71,7 +74,7 @@ if "!current_version!"=="!latest_version!" (
 echo Starting update...
 
 echo Updating local code...
-git reset --hard origin/develop
+git reset --hard origin/main
 if errorlevel 1 (
     echo Error: Failed to update local code.
     pause
