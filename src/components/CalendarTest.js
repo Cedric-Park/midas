@@ -86,15 +86,10 @@ const CalendarTest = () => {
     const loadMembers = async () => {
       try {
         const response = await axios.get('http://localhost:3001/api/members');
-        console.log('서버 응답:', response);
         if (response.data && Array.isArray(response.data)) {
-          console.log('받아온 회원 데이터:', response.data);
           setMembers(response.data);
-        } else {
-          console.error('회원 데이터 형식이 올바르지 않습니다:', response.data);
         }
       } catch (error) {
-        console.error('회원 데이터를 불러오는데 실패했습니다:', error);
         if (error.response) {
           console.error('서버 응답:', error.response.data);
           console.error('상태 코드:', error.response.status);
@@ -155,7 +150,6 @@ const CalendarTest = () => {
           ...eventStyle,
         };
       });
-    console.log('캘린더에 표시될 events:', formattedEvents);
     setEvents(formattedEvents);
   }, [appointments, members]);
 
@@ -379,21 +373,15 @@ const CalendarTest = () => {
       return;
     }
 
-    console.log('세션 완료 시작:', { selectedEvent, eventMember, treatmentNote });
-
     const newSessionHistory = {
       memberId: selectedEvent.memberId,
       date: selectedEvent.start,
       note: treatmentNote,
     };
 
-    console.log('세션 내역 생성:', newSessionHistory);
-
     axios
       .post('http://localhost:3001/api/sessionHistory', newSessionHistory)
       .then(response => {
-        console.log('세션 내역 생성 성공:', response.data);
-        // 예약 상태 업데이트
         return axios.patch(`http://localhost:3001/api/appointments/${selectedEvent.id}`, {
           status: 'completed',
           memberId: selectedEvent.memberId,
@@ -402,142 +390,10 @@ const CalendarTest = () => {
         });
       })
       .then(response => {
-        console.log('예약 상태 업데이트 성공:', response.data);
-        // 예약 목록을 즉시 갱신
         return axios.get('http://localhost:3001/api/appointments');
       })
       .then(response => {
-        console.log('예약 목록 갱신 성공:', response.data);
         setAppointments(response.data);
-        // events도 즉시 갱신
-        const formattedEvents = response.data
-          .filter(appointment => appointment.start && appointment.end)
-          .map(appointment => {
-            const member = members.find(m => String(m.id) === String(appointment.memberId));
-            let eventStyle = {
-              classNames: ['midas-event'],
-              backgroundColor: '#f6e7d7',
-              borderColor: '#a67c52',
-              textColor: '#3C1E1E',
-            };
-            if (appointment.status === 'completed') {
-              eventStyle = {
-                classNames: ['midas-event', 'midas-event-completed'],
-                backgroundColor: '#bdbdbd',
-                borderColor: '#757575',
-                textColor: '#212121',
-              };
-            } else if (appointment.status === 'cancelled') {
-              eventStyle = {
-                classNames: ['midas-event', 'midas-event-cancelled'],
-                backgroundColor: '#ffcdd2',
-                borderColor: '#e57373',
-                textColor: '#b71c1c',
-              };
-            }
-            return {
-              id: appointment.id,
-              title: member ? member.name : 'Unknown Member',
-              start: appointment.start,
-              end: appointment.end,
-              memberId: appointment.memberId,
-              status: appointment.status,
-              ...eventStyle,
-            };
-          });
-        setEvents(formattedEvents);
-        // 세션 종료 시 회원 lastVisit도 오늘 날짜로 PATCH
-        const todayStr = new Date().toISOString().split('T')[0];
-        const updateData = {
-          last_visit: todayStr,
-        };
-
-        // 의존 관계가 있는 경우 의존하는 회원의 remaining_sessions를 감소
-        if (eventMember.depends_on) {
-          const dependentId = eventMember.depends_on;
-          const dependentMember = members.find(m => m.id === dependentId);
-          if (dependentMember) {
-            console.log('의존 회원 처리:', dependentMember);
-            // 의존하는 회원의 remaining_sessions 감소 및 last_visit 업데이트
-            return axios
-              .patch(`http://localhost:3001/api/members/${dependentId}`, {
-                remaining_sessions: dependentMember.remaining_sessions - 1,
-                last_visit: todayStr,
-                name: dependentMember.name,
-                phone: dependentMember.phone,
-                gender: dependentMember.gender,
-                birth_date: dependentMember.birth_date,
-                purpose: dependentMember.purpose,
-                join_date: dependentMember.join_date,
-                notes: dependentMember.notes,
-                shared_with: dependentMember.shared_with,
-                depends_on: dependentMember.depends_on,
-              })
-              .then(response => {
-                console.log('의존 회원 업데이트 성공:', response.data);
-                // 공유하는 회원의 세션 내역에 의존하는 회원의 세션 완료 정보 기록
-                const beforeCount = dependentMember.remaining_sessions;
-                const afterCount = beforeCount - 1;
-                const sharedSessionNote = `${eventMember.name}님이 관리 횟수 1을 사용하셨습니다. (${beforeCount}회 → ${afterCount}회)`;
-                return axios.post('http://localhost:3001/api/sessionHistory', {
-                  memberId: dependentId,
-                  date: selectedEvent.start,
-                  note: sharedSessionNote,
-                });
-              });
-          }
-        } else {
-          console.log('일반 회원 처리:', eventMember);
-          // 의존 관계가 없는 경우 자신의 remaining_sessions를 감소
-          updateData.remaining_sessions = eventMember.remaining_sessions - 1;
-          updateData.name = eventMember.name;
-          updateData.phone = eventMember.phone;
-          updateData.gender = eventMember.gender;
-          updateData.birth_date = eventMember.birth_date;
-          updateData.purpose = eventMember.purpose;
-          updateData.join_date = eventMember.join_date;
-          updateData.notes = eventMember.notes;
-          updateData.shared_with = eventMember.shared_with;
-          updateData.depends_on = eventMember.depends_on;
-        }
-
-        console.log('회원 정보 업데이트:', updateData);
-        return axios.patch(
-          `http://localhost:3001/api/members/${selectedEvent.memberId}`,
-          updateData
-        );
-      })
-      .then(response => {
-        console.log('회원 정보 업데이트 성공:', response.data);
-        // 세션 내역 목록 다시 불러오기
-        return loadSessionHistory(selectedEvent.memberId);
-      })
-      .then(() => {
-        console.log('세션 내역 다시 불러오기 성공');
-        // 회원 정보를 다시 불러옵니다
-        return axios.get(`http://localhost:3001/api/members/${selectedEvent.memberId}`);
-      })
-      .then(response => {
-        console.log('회원 정보 다시 불러오기 성공:', response.data);
-        setEventMember(response.data);
-        setAppointments(
-          appointments.map(app =>
-            app.id === selectedEvent.id ? { ...app, status: 'completed' } : app
-          )
-        );
-        // 회원 목록을 다시 불러옵니다
-        return axios.get('http://localhost:3001/api/members');
-      })
-      .then(response => {
-        console.log('회원 목록 다시 불러오기 성공:', response.data);
-        setMembers(response.data);
-        // 예약 목록을 다시 불러와서 이벤트 목록 갱신
-        return axios.get('http://localhost:3001/api/appointments');
-      })
-      .then(response => {
-        console.log('예약 목록 다시 불러오기 성공:', response.data);
-        setAppointments(response.data);
-        // events도 즉시 갱신
         if (members.length > 0) {
           const formattedEvents = response.data
             .filter(appointment => appointment.start && appointment.end)
@@ -576,26 +432,13 @@ const CalendarTest = () => {
             });
           setEvents(formattedEvents);
         }
-        setTreatmentNote('');
-        setToastOpen(true);
-        handleCloseEventDialog();
+        handleCloseDialog();
       })
       .catch(error => {
-        console.error('세션 내역 저장에 실패했습니다:', error);
-        if (error.response) {
-          console.error('서버 응답:', error.response.data);
-          console.error('상태 코드:', error.response.status);
-        }
-        // 세션 내역이 저장되었지만 다른 작업에서 에러가 발생한 경우
-        if (error.response && error.response.status === 400) {
-          // 세션 내역을 다시 불러와서 UI 업데이트
-          loadSessionHistory(selectedEvent.memberId).then(() => {
-            setTreatmentNote('');
-            setToastOpen(true);
-            handleCloseEventDialog();
-          });
+        if (error.response && error.response.data && error.response.data.error) {
+          alert(error.response.data.error);
         } else {
-          alert('세션 내역 저장에 실패했습니다. 다시 시도해주세요.');
+          alert('예약 생성에 실패했습니다. 다시 시도해주세요.');
         }
       });
   };
@@ -1137,83 +980,94 @@ const CalendarTest = () => {
                           <Typography variant="body2" color="text.secondary">
                             남은 관리횟수
                           </Typography>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            {eventMember.depends_on &&
-                            JSON.parse(eventMember.depends_on).length > 0 ? (
-                              <>
-                                {JSON.parse(eventMember.depends_on).map(id => {
-                                  const dependentMember = members.find(m => m.id === id);
-                                  return (
-                                    dependentMember && (
-                                      <Box key={id}>
-                                        <Typography variant="body1">
-                                          {dependentMember.name}의 관리횟수:{' '}
-                                          {dependentMember.remaining_sessions}회
+                          <Typography variant="body1">
+                            {eventMember.depends_on
+                              ? (() => {
+                                  const dependsOnMember = members.find(
+                                    m => m.id === eventMember.depends_on
+                                  );
+                                  return dependsOnMember
+                                    ? `${dependsOnMember.remaining_sessions}회`
+                                    : '알 수 없음';
+                                })()
+                              : `${eventMember.remaining_sessions}회`}
+                          </Typography>
+                        </Grid>
+                        {(() => {
+                          let sharedWithArray = [];
+                          if (eventMember && eventMember.shared_with) {
+                            if (Array.isArray(eventMember.shared_with)) {
+                              sharedWithArray = eventMember.shared_with;
+                            } else {
+                              try {
+                                sharedWithArray = JSON.parse(eventMember.shared_with);
+                              } catch {
+                                sharedWithArray = [];
+                              }
+                            }
+                          }
+                          return (
+                            <>
+                              {sharedWithArray.length > 0 && (
+                                <Grid item xs={12}>
+                                  <Typography variant="body2" color="text.secondary">
+                                    공유 중인 회원
+                                  </Typography>
+                                  {sharedWithArray.map(id => {
+                                    const sharedMember = members.find(m => m.id === id);
+                                    return (
+                                      sharedMember && (
+                                        <Typography key={id} variant="body1">
+                                          {sharedMember.name}
                                           <Chip
-                                            label="의존 중"
+                                            label="공유 중"
                                             size="small"
                                             sx={{
                                               ml: 1,
-                                              background: '#e3f2fd',
-                                              color: '#1565c0',
+                                              background: '#e8f5e9',
+                                              color: '#2e7d32',
                                             }}
                                           />
                                         </Typography>
-                                      </Box>
-                                    )
-                                  );
-                                })}
-                              </>
-                            ) : (
-                              <>
-                                <Typography variant="body1">
-                                  {eventMember.remaining_sessions}회
-                                </Typography>
-                                {eventMember.remaining_sessions < 3 && (
-                                  <Tooltip title="관리횟수가 부족합니다. 충전이 필요합니다." arrow>
-                                    <Chip
-                                      label="관리횟수 부족"
-                                      color="warning"
-                                      size="small"
-                                      sx={{
-                                        background: '#fff3e0',
-                                        color: '#e65100',
-                                        fontWeight: 600,
-                                      }}
-                                    />
-                                  </Tooltip>
-                                )}
-                              </>
-                            )}
-                          </Box>
-                        </Grid>
-                        {eventMember.shared_with &&
-                          JSON.parse(eventMember.shared_with).length > 0 && (
-                            <Grid item xs={12}>
-                              <Typography variant="body2" color="text.secondary">
-                                공유 중인 회원
-                              </Typography>
-                              {JSON.parse(eventMember.shared_with).map(id => {
-                                const sharedMember = members.find(m => m.id === id);
-                                return (
-                                  sharedMember && (
-                                    <Typography key={id} variant="body1">
-                                      {sharedMember.name}
-                                      <Chip
-                                        label="공유 중"
-                                        size="small"
-                                        sx={{
-                                          ml: 1,
-                                          background: '#e8f5e9',
-                                          color: '#2e7d32',
-                                        }}
-                                      />
-                                    </Typography>
-                                  )
-                                );
-                              })}
-                            </Grid>
-                          )}
+                                      )
+                                    );
+                                  })}
+                                </Grid>
+                              )}
+                              {/* 의존 중인 회원 */}
+                              {eventMember.depends_on && (
+                                <Grid item xs={12}>
+                                  <Typography variant="body2" color="text.secondary">
+                                    관리횟수 의존 대상
+                                  </Typography>
+                                  {(() => {
+                                    const dependsOnMember = members.find(
+                                      m => m.id === eventMember.depends_on
+                                    );
+                                    return dependsOnMember ? (
+                                      <Typography variant="body1">
+                                        {dependsOnMember.name}
+                                        <Chip
+                                          label="의존 중"
+                                          size="small"
+                                          sx={{
+                                            ml: 1,
+                                            background: '#e3f2fd',
+                                            color: '#1565c0',
+                                          }}
+                                        />
+                                      </Typography>
+                                    ) : (
+                                      <Typography variant="body1" color="text.secondary">
+                                        알 수 없음
+                                      </Typography>
+                                    );
+                                  })()}
+                                </Grid>
+                              )}
+                            </>
+                          );
+                        })()}
                       </Grid>
                     </Paper>
                   </Box>
