@@ -26,7 +26,7 @@ import {
   Card,
   CardContent,
   LinearProgress,
-  Autocomplete
+  Autocomplete,
 } from '@mui/material';
 import axios from 'axios';
 import EditIcon from '@mui/icons-material/Edit';
@@ -49,7 +49,7 @@ const AddMemberDialog = React.memo(({ open, onClose, onAdd, members }) => {
     phone: '',
     remainCount: 12,
     notes: '',
-    relationship: ''
+    relationship: '',
   });
   const [selectedSharedMember, setSelectedSharedMember] = useState(null);
   const [sharedMembers, setSharedMembers] = useState([]);
@@ -65,7 +65,7 @@ const AddMemberDialog = React.memo(({ open, onClose, onAdd, members }) => {
     setSelectedSharedMember(null);
   };
 
-  const handleRemoveSharedMember = (memberId) => {
+  const handleRemoveSharedMember = memberId => {
     setSharedMembers(sharedMembers.filter(m => m.id !== memberId));
   };
 
@@ -76,7 +76,7 @@ const AddMemberDialog = React.memo(({ open, onClose, onAdd, members }) => {
     }
     const today = new Date().toISOString().split('T')[0];
     try {
-      const response = await axios.post('http://localhost:3001/members', {
+      const response = await axios.post('http://localhost:3001/api/members', {
         ...newMember,
         birth_date: newMember.birthDate,
         join_date: today,
@@ -85,9 +85,9 @@ const AddMemberDialog = React.memo(({ open, onClose, onAdd, members }) => {
         remaining_sessions: newMember.remainCount,
         birthDate: undefined,
         remainCount: undefined,
-        shared_with: JSON.stringify(sharedMembers.map(m => m.id))
+        shared_with: JSON.stringify(sharedMembers.map(m => m.id)),
       });
-      
+
       onAdd(response.data);
       setNewMember({
         name: '',
@@ -97,7 +97,7 @@ const AddMemberDialog = React.memo(({ open, onClose, onAdd, members }) => {
         phone: '',
         remainCount: 12,
         notes: '',
-        relationship: ''
+        relationship: '',
       });
       setSharedMembers([]);
       onClose();
@@ -114,7 +114,7 @@ const AddMemberDialog = React.memo(({ open, onClose, onAdd, members }) => {
           <TextField
             label="이름"
             value={newMember.name}
-            onChange={(e) => handleChange('name', e.target.value)}
+            onChange={e => handleChange('name', e.target.value)}
             fullWidth
             required
             autoFocus
@@ -125,15 +125,23 @@ const AddMemberDialog = React.memo(({ open, onClose, onAdd, members }) => {
             onChange={(_, v) => v && handleChange('gender', v)}
             sx={{ width: '100%' }}
           >
-            <ToggleButton value="남" sx={{ flex: 1 }}>남</ToggleButton>
-            <ToggleButton value="여" sx={{ flex: 1 }}>여</ToggleButton>
+            <ToggleButton value="남" sx={{ flex: 1 }}>
+              남
+            </ToggleButton>
+            <ToggleButton value="여" sx={{ flex: 1 }}>
+              여
+            </ToggleButton>
           </ToggleButtonGroup>
           <TextField
             label="생년월일"
             type="date"
             value={newMember.birthDate}
-            onChange={(e) => handleChange('birthDate', e.target.value)}
+            onChange={e => handleChange('birthDate', e.target.value)}
             InputLabelProps={{ shrink: true }}
+            inputProps={{
+              max: `${new Date().getFullYear()}-12-31`,
+              min: '1900-01-01',
+            }}
             fullWidth
             required
           />
@@ -143,13 +151,17 @@ const AddMemberDialog = React.memo(({ open, onClose, onAdd, members }) => {
             onChange={(_, v) => v && handleChange('purpose', v)}
             sx={{ width: '100%' }}
           >
-            <ToggleButton value="다이어트" sx={{ flex: 1 }}>다이어트</ToggleButton>
-            <ToggleButton value="통증" sx={{ flex: 1 }}>통증</ToggleButton>
+            <ToggleButton value="다이어트" sx={{ flex: 1 }}>
+              다이어트
+            </ToggleButton>
+            <ToggleButton value="통증" sx={{ flex: 1 }}>
+              통증
+            </ToggleButton>
           </ToggleButtonGroup>
           <TextField
             label="전화번호"
             value={newMember.phone}
-            onChange={(e) => handleChange('phone', e.target.value)}
+            onChange={e => handleChange('phone', e.target.value)}
             fullWidth
             required
           />
@@ -157,19 +169,19 @@ const AddMemberDialog = React.memo(({ open, onClose, onAdd, members }) => {
             label="남은 관리횟수"
             type="number"
             value={newMember.remainCount}
-            onChange={(e) => handleChange('remainCount', Number(e.target.value))}
+            onChange={e => handleChange('remainCount', Number(e.target.value))}
             fullWidth
           />
           <TextField
             label="소개(관계)"
             value={newMember.relationship}
-            onChange={(e) => handleChange('relationship', e.target.value)}
+            onChange={e => handleChange('relationship', e.target.value)}
             fullWidth
           />
           <TextField
             label="특이사항"
             value={newMember.notes}
-            onChange={(e) => handleChange('notes', e.target.value)}
+            onChange={e => handleChange('notes', e.target.value)}
             fullWidth
             multiline
             minRows={2}
@@ -180,11 +192,19 @@ const AddMemberDialog = React.memo(({ open, onClose, onAdd, members }) => {
             </Typography>
             <Autocomplete
               options={members.filter(m => !sharedMembers.find(sm => sm.id === m.id))}
-              getOptionLabel={(option) => {
-                const isShared = option.shared_with && JSON.parse(option.shared_with).length > 0;
-                const isDependent = members.some(m => m.shared_with && JSON.parse(m.shared_with).includes(option.id));
+              getOptionLabel={option => {
+                let sharedWithArr = [];
+                try {
+                  sharedWithArr = Array.isArray(option.shared_with)
+                    ? option.shared_with
+                    : JSON.parse(option.shared_with);
+                } catch {
+                  sharedWithArr = [];
+                }
+                const hasSharedCount = sharedWithArr.length > 0;
+                const isDependent = option.depends_on !== null;
                 let label = `${option.name} (${option.phone})`;
-                if (isShared) {
+                if (hasSharedCount) {
                   label += ' [관리횟수 공유 중]';
                 } else if (isDependent) {
                   label += ' [관리횟수 의존 중]';
@@ -193,19 +213,15 @@ const AddMemberDialog = React.memo(({ open, onClose, onAdd, members }) => {
               }}
               value={selectedSharedMember}
               onChange={handleSharedMemberChange}
-              renderInput={(params) => (
-                <TextField
-                  {...params}
-                  size="small"
-                  placeholder="관리 횟수 연결할 회원 검색"
-                />
+              renderInput={params => (
+                <TextField {...params} size="small" placeholder="관리 횟수 연결할 회원 검색" />
               )}
             />
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-              {sharedMembers.map((member) => (
+              {sharedMembers.map(member => (
                 <Chip
                   key={member.id}
-                  label={`${member.name} (${member.phone})`}
+                  label={member.name}
                   onDelete={() => handleRemoveSharedMember(member.id)}
                   sx={{
                     backgroundColor: '#e3f2fd',
@@ -213,9 +229,9 @@ const AddMemberDialog = React.memo(({ open, onClose, onAdd, members }) => {
                     '& .MuiChip-deleteIcon': {
                       color: '#1565c0',
                       '&:hover': {
-                        color: '#0d47a1'
-                      }
-                    }
+                        color: '#0d47a1',
+                      },
+                    },
                   }}
                 />
               ))}
@@ -225,11 +241,15 @@ const AddMemberDialog = React.memo(({ open, onClose, onAdd, members }) => {
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>취소</Button>
-        <Button onClick={handleSubmit} variant="contained">등록</Button>
+        <Button onClick={handleSubmit} variant="contained">
+          등록
+        </Button>
       </DialogActions>
     </Dialog>
   );
 });
+
+AddMemberDialog.displayName = 'AddMemberDialog';
 
 const MemberManagement = () => {
   const [members, setMembers] = useState([]);
@@ -248,7 +268,7 @@ const MemberManagement = () => {
     phone: '',
     remainCount: 12,
     notes: '',
-    relationship: ''
+    relationship: '',
   });
   const [genderStats, setGenderStats] = useState({ male: 0, female: 0 });
   const [purposeStats, setPurposeStats] = useState({ diet: 0, pain: 0 });
@@ -264,7 +284,7 @@ const MemberManagement = () => {
     phone: '',
     notes: '',
     relationship: '',
-    shared_with: '[]'
+    shared_with: '[]',
   });
   const [sharedMembers, setSharedMembers] = useState([]);
   const [selectedSharedMember, setSelectedSharedMember] = useState(null);
@@ -279,15 +299,17 @@ const MemberManagement = () => {
       setFilteredMembers(members);
       return;
     }
-    
+
     const filtered = members.filter(member => {
       if (!member) return false;
-      
+
       const searchTermLower = searchTerm.toLowerCase();
       const nameMatch = member.name ? member.name.toLowerCase().includes(searchTermLower) : false;
       const phoneMatch = member.phone ? member.phone.includes(searchTerm) : false;
-      const relationshipMatch = member.relationship ? member.relationship.toLowerCase().includes(searchTermLower) : false;
-      
+      const relationshipMatch = member.relationship
+        ? member.relationship.toLowerCase().includes(searchTermLower)
+        : false;
+
       return nameMatch || phoneMatch || relationshipMatch;
     });
     setFilteredMembers(filtered);
@@ -309,7 +331,7 @@ const MemberManagement = () => {
       }, {});
       setGenderStats({
         male: genderCount['남'] || 0,
-        female: genderCount['여'] || 0
+        female: genderCount['여'] || 0,
       });
 
       // 목적 통계 계산
@@ -319,34 +341,36 @@ const MemberManagement = () => {
       }, {});
       setPurposeStats({
         diet: purposeCount['다이어트'] || 0,
-        pain: purposeCount['통증'] || 0
+        pain: purposeCount['통증'] || 0,
       });
     }
   }, [members]);
 
   const fetchMembers = async () => {
     try {
-      const response = await axios.get('http://localhost:3001/members');
+      const response = await axios.get('http://localhost:3001/api/members');
       if (response.data && Array.isArray(response.data)) {
         // ID를 문자열로 변환하고 모든 필드가 있는지 확인
-        const membersWithStringIds = response.data.map(member => {
-          if (!member || !member.id) {
-            console.error('잘못된 회원 데이터:', member);
-            return null;
-          }
-          return {
-            ...member,
-            id: String(member.id),
-            name: member.name || '',
-            gender: member.gender || '남',
-            birth_date: member.birth_date || '',
-            purpose: member.purpose || '다이어트',
-            phone: member.phone || '',
-            notes: member.notes || '',
-            relationship: member.relationship || '',
-            shared_with: member.shared_with || '[]'
-          };
-        }).filter(member => member !== null);
+        const membersWithStringIds = response.data
+          .map(member => {
+            if (!member || !member.id) {
+              console.error('잘못된 회원 데이터:', member);
+              return null;
+            }
+            return {
+              ...member,
+              id: String(member.id),
+              name: member.name || '',
+              gender: member.gender || '남',
+              birth_date: member.birth_date || '',
+              purpose: member.purpose || '다이어트',
+              phone: member.phone || '',
+              notes: member.notes || '',
+              relationship: member.relationship || '',
+              shared_with: member.shared_with || '[]',
+            };
+          })
+          .filter(member => member !== null);
 
         console.log('가져온 회원 데이터:', membersWithStringIds);
         setMembers(membersWithStringIds);
@@ -363,12 +387,12 @@ const MemberManagement = () => {
     setPage(newPage);
   };
 
-  const handleChangeRowsPerPage = (event) => {
+  const handleChangeRowsPerPage = event => {
     setRowsPerPage(parseInt(event.target.value, 10));
     setPage(0);
   };
 
-  const handleAddMember = (newMemberData) => {
+  const handleAddMember = newMemberData => {
     setMembers(prev => [...prev, newMemberData]);
     if (!searchTerm) {
       setFilteredMembers(prev => [...prev, newMemberData]);
@@ -378,7 +402,7 @@ const MemberManagement = () => {
 
   const handleEditMember = async () => {
     try {
-      await axios.patch(`http://localhost:3001/members/${selectedMember.id}`, {
+      const updateData = {
         name: selectedMember.name,
         gender: selectedMember.gender,
         birth_date: selectedMember.birth_date,
@@ -386,28 +410,28 @@ const MemberManagement = () => {
         phone: selectedMember.phone,
         notes: selectedMember.notes,
         relationship: selectedMember.relationship,
-        shared_with: selectedMember.shared_with
-      });
-      
+        shared_with: JSON.stringify(selectedMember.shared_with || []),
+      };
+
+      await axios.patch(`http://localhost:3001/api/members/${selectedMember.id}`, updateData);
       setOpenEditDialog(false);
-      await fetchMembers(); // 서버에서 최신 데이터를 가져옵니다
-      
-      // 회원 변경 이벤트 발생
+      await fetchMembers();
+
       window.dispatchEvent(new Event('memberChange'));
     } catch (error) {
       alert('회원 정보 수정에 실패했습니다.');
     }
   };
 
-  const handleDeleteMember = async (memberId) => {
+  const handleDeleteMember = async memberId => {
     if (window.confirm('정말로 이 회원을 삭제하시겠습니까?')) {
       try {
-        await axios.delete(`http://localhost:3001/members/${memberId}`);
+        await axios.delete(`http://localhost:3001/api/members/${memberId}`);
         const updatedMembers = members.filter(member => member.id !== memberId);
         setMembers(updatedMembers);
         setFilteredMembers(updatedMembers);
         setSearchTerm('');
-        
+
         // 회원 변경 이벤트 발생
         window.dispatchEvent(new Event('memberChange'));
       } catch (error) {
@@ -417,7 +441,7 @@ const MemberManagement = () => {
     }
   };
 
-  const getKoreanAge = (birthDateStr) => {
+  const getKoreanAge = birthDateStr => {
     if (!birthDateStr) return '';
     const today = new Date();
     const birth = new Date(birthDateStr);
@@ -444,9 +468,8 @@ const MemberManagement = () => {
     setEditValue('');
   };
 
-  const handleInlineSave = async (member) => {
+  const handleInlineSave = async member => {
     try {
-      // 기존 회원 데이터를 유지하면서 remaining_sessions만 업데이트
       const updateData = {
         name: member.name || '',
         gender: member.gender || '남',
@@ -455,19 +478,22 @@ const MemberManagement = () => {
         phone: member.phone || '',
         notes: member.notes || '',
         relationship: member.relationship || '',
-        shared_with: member.shared_with || '[]',
+        shared_with: JSON.stringify(member.shared_with || []),
         remaining_sessions: Number(editValue) || 0,
         join_date: member.join_date || new Date().toISOString().split('T')[0],
-        last_visit: member.last_visit || ''
+        last_visit: member.last_visit || '',
       };
-      
+
       console.log('업데이트할 데이터:', updateData);
-      const response = await axios.patch(`http://localhost:3001/members/${member.id}`, updateData);
+      const response = await axios.patch(
+        `http://localhost:3001/api/members/${member.id}`,
+        updateData
+      );
       console.log('서버 응답:', response.data);
-      
+
       setEditCell({ id: null, field: null });
       setEditValue('');
-      await fetchMembers(); // 서버에서 최신 데이터를 가져옵니다
+      await fetchMembers();
     } catch (error) {
       console.error('관리 횟수 수정 실패:', error);
       alert('관리 횟수 수정에 실패했습니다.');
@@ -477,10 +503,10 @@ const MemberManagement = () => {
   const handleInlineDelete = async (member, field) => {
     try {
       const newValue = field === 'remaining_sessions' ? 0 : '';
-      await axios.patch(`http://localhost:3001/members/${member.id}`, {
-        [field]: newValue
+      await axios.patch(`http://localhost:3001/api/members/${member.id}`, {
+        [field]: newValue,
       });
-      
+
       await fetchMembers(); // 서버에서 최신 데이터를 가져옵니다
     } catch (error) {
       alert('초기화에 실패했습니다.');
@@ -491,9 +517,9 @@ const MemberManagement = () => {
     setNewMember(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleEditClick = (member) => {
+  const handleEditClick = member => {
     console.log('handleEditClick 호출 - 전달받은 회원 정보:', member);
-    
+
     if (!member || !member.id) {
       console.error('회원 정보 또는 ID가 없습니다:', member);
       return;
@@ -506,7 +532,7 @@ const MemberManagement = () => {
     }
 
     setEditMode(true);
-    
+
     // 회원 정보를 새 객체로 복사하여 설정
     const updatedMember = {
       id: member.id.toString(),
@@ -518,27 +544,27 @@ const MemberManagement = () => {
       notes: member.notes || '',
       relationship: member.relationship || '',
       shared_with: member.shared_with || '[]',
-      depends_on: member.depends_on || '[]',
-      remaining_sessions: member.remaining_sessions || 0
+      depends_on: member.depends_on || null,
+      remaining_sessions: member.remaining_sessions || 0,
     };
-    
+
     console.log('설정될 회원 정보:', updatedMember);
     setEditedMember(updatedMember);
-    
+
     // 공유 중인 회원들과 의존 중인 회원들을 모두 가져옴
     const sharedIds = member.shared_with ? JSON.parse(member.shared_with) : [];
-    const dependsOnIds = member.depends_on ? JSON.parse(member.depends_on) : [];
-    
+    const dependsOnId = member.depends_on;
+
     const sharedMembersList = members.filter(m => sharedIds.includes(m.id));
-    const dependsOnMembersList = members.filter(m => dependsOnIds.includes(m.id));
-    
-    setSharedMembers([...sharedMembersList, ...dependsOnMembersList]);
+    const dependsOnMember = dependsOnId ? members.find(m => m.id === dependsOnId) : null;
+
+    setSharedMembers([...sharedMembersList, ...(dependsOnMember ? [dependsOnMember] : [])]);
   };
 
   const handleSaveClick = async () => {
     try {
       console.log('저장 시작 - editedMember:', editedMember);
-      
+
       if (!editedMember) {
         console.error('editedMember가 없습니다');
         alert('회원 정보가 올바르지 않습니다.');
@@ -560,60 +586,53 @@ const MemberManagement = () => {
       // 현재 선택된 공유 회원들의 ID 배열
       const sharedIds = sharedMembers.map(m => m.id.toString());
       console.log('공유할 회원 ID들:', sharedIds);
-      
+
       // 현재 회원의 정보 업데이트
       const updateData = {
         ...editedMember,
         shared_with: JSON.stringify(sharedIds),
-        depends_on: '[]'
+        depends_on: null,
       };
-      
+
       console.log('서버로 전송할 데이터:', updateData);
-      const response = await axios.patch(`http://localhost:3001/members/${editedMember.id}`, updateData);
+      const response = await axios.patch(
+        `http://localhost:3001/api/members/${editedMember.id}`,
+        updateData
+      );
       console.log('서버 응답:', response.data);
 
       // 이전에 연결되어 있던 회원들 조회
-      const previousSharedWith = editedMember.shared_with ? JSON.parse(editedMember.shared_with) : [];
-      
+      const previousSharedWith = editedMember.shared_with
+        ? JSON.parse(editedMember.shared_with)
+        : [];
+
       // 더 이상 공유되지 않는 회원들의 ID 배열
       const removedMembers = previousSharedWith.filter(id => !sharedIds.includes(id));
       console.log('제거된 회원 ID들:', removedMembers);
 
       // 제거된 회원들의 depends_on에서 현재 회원 ID 제거
       for (const memberId of removedMembers) {
-        const member = await axios.get(`http://localhost:3001/members/${memberId}`);
+        const member = await axios.get(`http://localhost:3001/api/members/${memberId}`);
         if (member.data) {
-          const currentDependsOn = JSON.parse(member.data.depends_on || '[]');
-          const updatedDependsOn = currentDependsOn.filter(id => id !== editedMember.id);
-          
-          console.log(`회원 ${memberId}의 depends_on 업데이트:`, {
-            이전: currentDependsOn,
-            이후: updatedDependsOn
-          });
-          
-          await axios.patch(`http://localhost:3001/members/${memberId}`, {
-            ...member.data,
-            depends_on: JSON.stringify(updatedDependsOn)
-          });
+          const currentDependsOn = member.data.depends_on;
+          if (currentDependsOn === editedMember.id) {
+            await axios.patch(`http://localhost:3001/api/members/${memberId}`, {
+              ...member.data,
+              depends_on: null,
+            });
+          }
         }
       }
 
       // 새로 추가된 회원들의 depends_on에 현재 회원 ID 추가
       for (const memberId of sharedIds) {
-        const member = await axios.get(`http://localhost:3001/members/${memberId}`);
+        const member = await axios.get(`http://localhost:3001/api/members/${memberId}`);
         if (member.data) {
-          const currentDependsOn = JSON.parse(member.data.depends_on || '[]');
-          if (!currentDependsOn.includes(editedMember.id)) {
-            const updatedDependsOn = [...currentDependsOn, editedMember.id];
-            
-            console.log(`회원 ${memberId}의 depends_on 업데이트:`, {
-              이전: currentDependsOn,
-              이후: updatedDependsOn
-            });
-            
-            await axios.patch(`http://localhost:3001/members/${memberId}`, {
+          const currentDependsOn = member.data.depends_on;
+          if (currentDependsOn !== editedMember.id) {
+            await axios.patch(`http://localhost:3001/api/members/${memberId}`, {
               ...member.data,
-              depends_on: JSON.stringify(updatedDependsOn)
+              depends_on: editedMember.id,
             });
           }
         }
@@ -621,7 +640,7 @@ const MemberManagement = () => {
 
       setEditMode(false);
       await fetchMembers();
-      
+
       // 회원 변경 이벤트 발생
       window.dispatchEvent(new Event('memberChange'));
     } catch (error) {
@@ -637,7 +656,7 @@ const MemberManagement = () => {
     setSelectedSharedMember(null);
   };
 
-  const handleRemoveSharedMember = (memberId) => {
+  const handleRemoveSharedMember = memberId => {
     setSharedMembers(sharedMembers.filter(m => m.id !== memberId));
   };
 
@@ -652,7 +671,7 @@ const MemberManagement = () => {
           <TextField
             placeholder="전체 회원 검색"
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={e => setSearchTerm(e.target.value)}
             size="small"
             InputProps={{
               startAdornment: (
@@ -670,7 +689,7 @@ const MemberManagement = () => {
             sx={{
               background: BROWN_BG,
               color: BROWN_TEXT,
-              '&:hover': { background: '#e0cfc0' }
+              '&:hover': { background: '#e0cfc0' },
             }}
           >
             회원 추가
@@ -682,8 +701,19 @@ const MemberManagement = () => {
         <Grid item xs={12} md={6}>
           <Card elevation={2}>
             <CardContent>
-              <Typography variant="subtitle1" gutterBottom>성별 비율</Typography>
-              <Box sx={{ width: '100%', height: 20, display: 'flex', borderRadius: 1, overflow: 'hidden', boxShadow: 1 }}>
+              <Typography variant="subtitle1" gutterBottom>
+                성별 비율
+              </Typography>
+              <Box
+                sx={{
+                  width: '100%',
+                  height: 20,
+                  display: 'flex',
+                  borderRadius: 1,
+                  overflow: 'hidden',
+                  boxShadow: 1,
+                }}
+              >
                 <Box
                   sx={{
                     width: `${getPercentage(genderStats.male, genderStats.male + genderStats.female)}%`,
@@ -693,10 +723,12 @@ const MemberManagement = () => {
                     justifyContent: 'center',
                     color: '#3C1E1E',
                     fontWeight: 700,
-                    fontSize: 16
+                    fontSize: 16,
                   }}
                 >
-                  {genderStats.male > 0 ? `${genderStats.male} (${getPercentage(genderStats.male, genderStats.male + genderStats.female).toFixed(0)}%)` : ''}
+                  {genderStats.male > 0
+                    ? `${genderStats.male} (${getPercentage(genderStats.male, genderStats.male + genderStats.female).toFixed(0)}%)`
+                    : ''}
                 </Box>
                 <Box
                   sx={{
@@ -707,15 +739,21 @@ const MemberManagement = () => {
                     justifyContent: 'center',
                     color: '#3C1E1E',
                     fontWeight: 700,
-                    fontSize: 16
+                    fontSize: 16,
                   }}
                 >
-                  {genderStats.female > 0 ? `${genderStats.female} (${getPercentage(genderStats.female, genderStats.male + genderStats.female).toFixed(0)}%)` : ''}
+                  {genderStats.female > 0
+                    ? `${genderStats.female} (${getPercentage(genderStats.female, genderStats.male + genderStats.female).toFixed(0)}%)`
+                    : ''}
                 </Box>
               </Box>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 0.5 }}>
-                <Typography variant="body2" sx={{ color: '#ffe082', fontWeight: 700 }}>남성</Typography>
-                <Typography variant="body2" sx={{ color: '#90caf9', fontWeight: 700 }}>여성</Typography>
+                <Typography variant="body2" sx={{ color: '#ffe082', fontWeight: 700 }}>
+                  남성
+                </Typography>
+                <Typography variant="body2" sx={{ color: '#90caf9', fontWeight: 700 }}>
+                  여성
+                </Typography>
               </Box>
             </CardContent>
           </Card>
@@ -723,8 +761,19 @@ const MemberManagement = () => {
         <Grid item xs={12} md={6}>
           <Card elevation={2}>
             <CardContent>
-              <Typography variant="subtitle1" gutterBottom>목적 비율</Typography>
-              <Box sx={{ width: '100%', height: 20, display: 'flex', borderRadius: 1, overflow: 'hidden', boxShadow: 1 }}>
+              <Typography variant="subtitle1" gutterBottom>
+                목적 비율
+              </Typography>
+              <Box
+                sx={{
+                  width: '100%',
+                  height: 20,
+                  display: 'flex',
+                  borderRadius: 1,
+                  overflow: 'hidden',
+                  boxShadow: 1,
+                }}
+              >
                 <Box
                   sx={{
                     width: `${getPercentage(purposeStats.diet, purposeStats.diet + purposeStats.pain)}%`,
@@ -734,10 +783,12 @@ const MemberManagement = () => {
                     justifyContent: 'center',
                     color: '#3C1E1E',
                     fontWeight: 700,
-                    fontSize: 16
+                    fontSize: 16,
                   }}
                 >
-                  {purposeStats.diet > 0 ? `${purposeStats.diet} (${getPercentage(purposeStats.diet, purposeStats.diet + purposeStats.pain).toFixed(0)}%)` : ''}
+                  {purposeStats.diet > 0
+                    ? `${purposeStats.diet} (${getPercentage(purposeStats.diet, purposeStats.diet + purposeStats.pain).toFixed(0)}%)`
+                    : ''}
                 </Box>
                 <Box
                   sx={{
@@ -748,15 +799,21 @@ const MemberManagement = () => {
                     justifyContent: 'center',
                     color: '#3C1E1E',
                     fontWeight: 700,
-                    fontSize: 16
+                    fontSize: 16,
                   }}
                 >
-                  {purposeStats.pain > 0 ? `${purposeStats.pain} (${getPercentage(purposeStats.pain, purposeStats.diet + purposeStats.pain).toFixed(0)}%)` : ''}
+                  {purposeStats.pain > 0
+                    ? `${purposeStats.pain} (${getPercentage(purposeStats.pain, purposeStats.diet + purposeStats.pain).toFixed(0)}%)`
+                    : ''}
                 </Box>
               </Box>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 0.5 }}>
-                <Typography variant="body2" sx={{ color: '#aed581', fontWeight: 700 }}>다이어트</Typography>
-                <Typography variant="body2" sx={{ color: '#ce93d8', fontWeight: 700 }}>통증</Typography>
+                <Typography variant="body2" sx={{ color: '#aed581', fontWeight: 700 }}>
+                  다이어트
+                </Typography>
+                <Typography variant="body2" sx={{ color: '#ce93d8', fontWeight: 700 }}>
+                  통증
+                </Typography>
               </Box>
             </CardContent>
           </Card>
@@ -781,8 +838,28 @@ const MemberManagement = () => {
           <TableBody>
             {filteredMembers
               .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-              .map((member) => {
+              .map(member => {
                 console.log('테이블 행 렌더링 - 회원 정보:', member);
+                let sharedWithArr = [];
+                try {
+                  sharedWithArr = Array.isArray(member.shared_with)
+                    ? member.shared_with
+                    : JSON.parse(member.shared_with);
+                } catch {
+                  sharedWithArr = [];
+                }
+                const isDependent = members.some(m => {
+                  let arr = [];
+                  try {
+                    arr = Array.isArray(m.shared_with) ? m.shared_with : JSON.parse(m.shared_with);
+                  } catch {
+                    arr = [];
+                  }
+                  return arr.includes(member.id);
+                });
+                const dependentMember = isDependent
+                  ? members.find(m => m.id === member.depends_on)
+                  : null;
                 return (
                   <TableRow key={member.id}>
                     <TableCell>{member.name}</TableCell>
@@ -807,22 +884,31 @@ const MemberManagement = () => {
                             type="number"
                             inputProps={{ min: 0 }}
                           />
-                          <IconButton onClick={() => handleInlineSave(member)} size="small" color="primary"><SaveIcon /></IconButton>
-                          <IconButton onClick={handleInlineCancel} size="small"><CancelIcon /></IconButton>
+                          <IconButton
+                            onClick={() => handleInlineSave(member)}
+                            size="small"
+                            color="primary"
+                          >
+                            <SaveIcon />
+                          </IconButton>
+                          <IconButton onClick={handleInlineCancel} size="small">
+                            <CancelIcon />
+                          </IconButton>
                         </Box>
                       ) : (
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                           <Typography variant="body1" sx={{ fontWeight: 500 }}>
                             {(() => {
                               // 다른 회원이 이 회원의 관리 횟수를 사용하는 경우
-                              const isShared = member.shared_with && JSON.parse(member.shared_with).length > 0;
-                              if (isShared) {
+                              const hasSharedCount =
+                                member.shared_with && JSON.parse(member.shared_with).length > 0;
+                              if (hasSharedCount) {
                                 return `${member.remaining_sessions}회`;
                               }
                               // 이 회원이 다른 회원의 관리 횟수를 사용하는 경우
-                              const dependsOn = member.depends_on ? JSON.parse(member.depends_on) : [];
-                              if (dependsOn.length > 0) {
-                                const sharedMember = members.find(m => m.id === dependsOn[0]);
+                              const dependentId = member.depends_on;
+                              if (dependentId) {
+                                const sharedMember = members.find(m => m.id === dependentId);
                                 if (sharedMember) {
                                   return `${sharedMember.remaining_sessions}회`;
                                 }
@@ -832,20 +918,21 @@ const MemberManagement = () => {
                           </Typography>
                           {(() => {
                             // 관리 횟수 부족 뱃지 표시 로직
-                            const isShared = member.shared_with && JSON.parse(member.shared_with).length > 0;
-                            const isDependent = members.some(m => m.shared_with && JSON.parse(m.shared_with).includes(member.id));
+                            const hasSharedCount =
+                              member.shared_with && JSON.parse(member.shared_with).length > 0;
+                            const isDependent = member.depends_on !== null;
                             const remainingSessions = member.remaining_sessions || 0;
-                            
+
                             console.log('회원 정보:', {
                               id: member.id,
                               name: member.name,
                               shared_with: member.shared_with,
-                              isShared,
+                              hasSharedCount,
                               isDependent,
-                              remainingSessions
+                              remainingSessions,
                             });
-                            
-                            if (!isShared && !isDependent && remainingSessions < 3) {
+
+                            if (!hasSharedCount && !isDependent && remainingSessions < 3) {
                               return (
                                 <Chip
                                   label="관리횟수 부족"
@@ -854,82 +941,66 @@ const MemberManagement = () => {
                                   sx={{
                                     background: '#fff3e0',
                                     color: '#e65100',
-                                    fontWeight: 600
+                                    fontWeight: 600,
                                   }}
                                 />
                               );
                             }
                             return null;
                           })()}
-                          {(() => {
-                            // 관리 횟수 공유 중/의존 중 뱃지 표시 로직
-                            const sharedWith = member.shared_with ? JSON.parse(member.shared_with) : [];
-                            const dependsOn = member.depends_on ? JSON.parse(member.depends_on) : [];
-                            const isShared = sharedWith.length > 0;
-                            const isDependent = dependsOn.length > 0;
-                            
-                            console.log('뱃지 표시 조건:', {
-                              id: member.id,
-                              name: member.name,
-                              sharedWith,
-                              dependsOn,
-                              isShared,
-                              isDependent
-                            });
-                            
-                            // 의존 중인 경우 (다른 회원의 관리 횟수를 사용)
-                            if (isDependent) {
-                              return (
-                                <Chip
-                                  label="관리횟수 의존 중"
-                                  size="small"
-                                  sx={{
-                                    background: '#e3f2fd',
-                                    color: '#1565c0',
-                                    fontWeight: 600
-                                  }}
-                                />
-                              );
-                            }
-                            // 공유 중인 경우 (다른 회원에게 자신의 관리 횟수를 공유)
-                            if (isShared) {
-                              return (
-                                <Chip
-                                  label="관리횟수 공유 중"
-                                  size="small"
-                                  sx={{
-                                    background: '#e8f5e9',
-                                    color: '#2e7d32',
-                                    fontWeight: 600
-                                  }}
-                                />
-                              );
-                            }
-                            return null;
-                          })()}
+                          {sharedWithArr.length > 0 && (
+                            <Chip
+                              size="small"
+                              label="공유 중"
+                              sx={{
+                                ml: 1,
+                                background: '#e8f5e9',
+                                color: '#2e7d32',
+                                fontWeight: 600,
+                              }}
+                            />
+                          )}
+                          {isDependent && (
+                            <Chip
+                              size="small"
+                              label={`의존 중: ${dependentMember ? dependentMember.name : '알 수 없음'}`}
+                              sx={{
+                                ml: 1,
+                                background: '#e3f2fd',
+                                color: '#1565c0',
+                                fontWeight: 600,
+                              }}
+                            />
+                          )}
                           <Tooltip title="관리 횟수 수정">
-                            <IconButton 
-                              size="small" 
-                              onClick={() => handleInlineEdit(member.id, 'remaining_sessions', member.remaining_sessions)}
-                              sx={{ 
+                            <IconButton
+                              size="small"
+                              onClick={() =>
+                                handleInlineEdit(
+                                  member.id,
+                                  'remaining_sessions',
+                                  member.remaining_sessions
+                                )
+                              }
+                              sx={{
                                 color: '#3C1E1E',
-                                '&:hover': { 
-                                  background: '#f6e7d7'
-                                }
+                                '&:hover': {
+                                  background: '#f6e7d7',
+                                },
                               }}
                             >
                               <EditIcon fontSize="small" />
                             </IconButton>
                           </Tooltip>
                           <Tooltip title="관리 횟수 초기화">
-                            <IconButton 
-                              size="small" 
+                            <IconButton
+                              size="small"
                               onClick={() => handleInlineDelete(member, 'remaining_sessions')}
-                              sx={{ 
+                              sx={{
                                 color: '#d32f2f',
-                                '&:hover': { 
-                                  background: '#ffebee'
-                                }
+                                '&:hover': {
+                                  background: '#ffebee',
+                                },
                               }}
                             >
                               <DeleteIcon fontSize="small" />
@@ -948,18 +1019,18 @@ const MemberManagement = () => {
                                 console.error('회원 정보 또는 ID가 없습니다:', member);
                                 return;
                               }
-                              handleEditClick({...member, id: member.id.toString()});
+                              handleEditClick({ ...member, id: member.id.toString() });
                             }}
                             size="small"
                             variant="outlined"
                             startIcon={<EditIcon />}
-                            sx={{ 
+                            sx={{
                               borderColor: '#3C1E1E',
                               color: '#3C1E1E',
-                              '&:hover': { 
+                              '&:hover': {
                                 borderColor: '#3C1E1E',
-                                background: '#f6e7d7'
-                              }
+                                background: '#f6e7d7',
+                              },
                             }}
                           >
                             수정
@@ -971,13 +1042,13 @@ const MemberManagement = () => {
                             size="small"
                             variant="outlined"
                             startIcon={<DeleteIcon />}
-                            sx={{ 
+                            sx={{
                               borderColor: '#d32f2f',
                               color: '#d32f2f',
-                              '&:hover': { 
+                              '&:hover': {
                                 borderColor: '#d32f2f',
-                                background: '#ffebee'
-                              }
+                                background: '#ffebee',
+                              },
                             }}
                           >
                             삭제
@@ -1002,58 +1073,62 @@ const MemberManagement = () => {
         />
       </TableContainer>
 
-      <AddMemberDialog 
-        open={openAddDialog} 
-        onClose={() => setOpenAddDialog(false)} 
+      <AddMemberDialog
+        open={openAddDialog}
+        onClose={() => setOpenAddDialog(false)}
         onAdd={handleAddMember}
         members={members}
       />
 
       {/* 회원 수정 다이얼로그 */}
       {editMode && (
-        <Dialog 
-          open={editMode} 
-          onClose={() => setEditMode(false)} 
-          maxWidth="sm" 
+        <Dialog
+          open={editMode}
+          onClose={() => setEditMode(false)}
+          maxWidth="sm"
           fullWidth
           PaperProps={{
             sx: {
               borderRadius: 2,
-              boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)'
-            }
+              boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)',
+            },
           }}
         >
-          <DialogTitle sx={{ 
-            background: BROWN_BG,
-            color: BROWN_TEXT,
-            borderBottom: '1px solid #e0cfc0',
-            '& .MuiTypography-root': {
-              fontWeight: 600
-            }
-          }}>
+          <DialogTitle
+            sx={{
+              background: BROWN_BG,
+              color: BROWN_TEXT,
+              borderBottom: '1px solid #e0cfc0',
+              '& .MuiTypography-root': {
+                fontWeight: 600,
+              },
+            }}
+          >
             회원 정보 수정
           </DialogTitle>
           <DialogContent sx={{ mt: 2 }}>
-            <Box sx={{ 
-              display: 'flex', 
-              flexDirection: 'column', 
-              gap: 3,
-              '& .MuiTextField-root': {
-                '& .MuiOutlinedInput-root': {
-                  borderRadius: 1.5
-                }
-              },
-              '& .MuiToggleButtonGroup-root': {
-                borderRadius: 1.5,
-                overflow: 'hidden'
-              }
-            }}>
+            <Box
+              sx={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 3,
+                '& .MuiTextField-root': {
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: 1.5,
+                  },
+                },
+                '& .MuiToggleButtonGroup-root': {
+                  borderRadius: 1.5,
+                  overflow: 'hidden',
+                },
+              }}
+            >
               <Grid container spacing={2}>
                 <Grid item xs={12}>
                   <TextField
                     label="이름"
                     value={editedMember.name}
-                    onChange={(e) => setEditedMember(prev => ({ ...prev, name: e.target.value }))}
+                    onChange={e => setEditedMember(prev => ({ ...prev, name: e.target.value }))}
                     fullWidth
                     required
                     size="small"
@@ -1070,8 +1145,12 @@ const MemberManagement = () => {
                     fullWidth
                     size="small"
                   >
-                    <ToggleButton value="남" sx={{ flex: 1, py: 1 }}>남</ToggleButton>
-                    <ToggleButton value="여" sx={{ flex: 1, py: 1 }}>여</ToggleButton>
+                    <ToggleButton value="남" sx={{ flex: 1, py: 1 }}>
+                      남
+                    </ToggleButton>
+                    <ToggleButton value="여" sx={{ flex: 1, py: 1 }}>
+                      여
+                    </ToggleButton>
                   </ToggleButtonGroup>
                 </Grid>
                 <Grid item xs={12}>
@@ -1079,7 +1158,9 @@ const MemberManagement = () => {
                     label="생년월일"
                     type="date"
                     value={editedMember.birth_date}
-                    onChange={(e) => setEditedMember(prev => ({ ...prev, birth_date: e.target.value }))}
+                    onChange={e =>
+                      setEditedMember(prev => ({ ...prev, birth_date: e.target.value }))
+                    }
                     InputLabelProps={{ shrink: true }}
                     fullWidth
                     required
@@ -1097,15 +1178,19 @@ const MemberManagement = () => {
                     fullWidth
                     size="small"
                   >
-                    <ToggleButton value="다이어트" sx={{ flex: 1, py: 1 }}>다이어트</ToggleButton>
-                    <ToggleButton value="통증" sx={{ flex: 1, py: 1 }}>통증</ToggleButton>
+                    <ToggleButton value="다이어트" sx={{ flex: 1, py: 1 }}>
+                      다이어트
+                    </ToggleButton>
+                    <ToggleButton value="통증" sx={{ flex: 1, py: 1 }}>
+                      통증
+                    </ToggleButton>
                   </ToggleButtonGroup>
                 </Grid>
                 <Grid item xs={12}>
                   <TextField
                     label="전화번호"
                     value={editedMember.phone}
-                    onChange={(e) => setEditedMember(prev => ({ ...prev, phone: e.target.value }))}
+                    onChange={e => setEditedMember(prev => ({ ...prev, phone: e.target.value }))}
                     fullWidth
                     required
                     size="small"
@@ -1115,7 +1200,9 @@ const MemberManagement = () => {
                   <TextField
                     label="소개(관계)"
                     value={editedMember.relationship}
-                    onChange={(e) => setEditedMember(prev => ({ ...prev, relationship: e.target.value }))}
+                    onChange={e =>
+                      setEditedMember(prev => ({ ...prev, relationship: e.target.value }))
+                    }
                     fullWidth
                     size="small"
                   />
@@ -1124,7 +1211,7 @@ const MemberManagement = () => {
                   <TextField
                     label="특이사항"
                     value={editedMember.notes}
-                    onChange={(e) => setEditedMember(prev => ({ ...prev, notes: e.target.value }))}
+                    onChange={e => setEditedMember(prev => ({ ...prev, notes: e.target.value }))}
                     fullWidth
                     multiline
                     minRows={2}
@@ -1137,12 +1224,22 @@ const MemberManagement = () => {
                   </Typography>
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                     <Autocomplete
-                      options={members.filter(m => m.id !== editedMember.id && !sharedMembers.find(sm => sm.id === m.id))}
-                      getOptionLabel={(option) => {
-                        const isShared = option.shared_with && JSON.parse(option.shared_with).length > 0;
-                        const isDependent = members.some(m => m.shared_with && JSON.parse(m.shared_with).includes(option.id));
+                      options={members.filter(
+                        m => m.id !== editedMember.id && !sharedMembers.find(sm => sm.id === m.id)
+                      )}
+                      getOptionLabel={option => {
+                        let sharedWithArr = [];
+                        try {
+                          sharedWithArr = Array.isArray(option.shared_with)
+                            ? option.shared_with
+                            : JSON.parse(option.shared_with);
+                        } catch {
+                          sharedWithArr = [];
+                        }
+                        const hasSharedCount = sharedWithArr.length > 0;
+                        const isDependent = option.depends_on !== null;
                         let label = `${option.name} (${option.phone})`;
-                        if (isShared) {
+                        if (hasSharedCount) {
                           label += ' [관리횟수 공유 중]';
                         } else if (isDependent) {
                           label += ' [관리횟수 의존 중]';
@@ -1151,7 +1248,7 @@ const MemberManagement = () => {
                       }}
                       value={selectedSharedMember}
                       onChange={handleSharedMemberChange}
-                      renderInput={(params) => (
+                      renderInput={params => (
                         <TextField
                           {...params}
                           size="small"
@@ -1160,14 +1257,22 @@ const MemberManagement = () => {
                       )}
                     />
                     <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                      {sharedMembers.map((member) => {
-                        const isShared = editedMember.shared_with && JSON.parse(editedMember.shared_with).includes(member.id);
-                        const isDependent = editedMember.depends_on && JSON.parse(editedMember.depends_on).includes(member.id);
-                        
+                      {sharedMembers.map(member => {
+                        let sharedWithArr = [];
+                        try {
+                          sharedWithArr = Array.isArray(editedMember.shared_with)
+                            ? editedMember.shared_with
+                            : JSON.parse(editedMember.shared_with);
+                        } catch {
+                          sharedWithArr = [];
+                        }
+                        const isShared = sharedWithArr.includes(member.id);
+                        const isDependent = editedMember.depends_on === member.id;
+
                         return (
                           <Chip
                             key={member.id}
-                            label={`${member.name} (${member.phone})${isShared ? ' [공유 중]' : isDependent ? ' [의존 중]' : ''}`}
+                            label={`${member.name}${isShared ? ' [공유 중]' : isDependent ? ' [의존 중]' : ''}`}
                             onDelete={() => handleRemoveSharedMember(member.id)}
                             sx={{
                               backgroundColor: isShared ? '#e8f5e9' : '#e3f2fd',
@@ -1175,9 +1280,9 @@ const MemberManagement = () => {
                               '& .MuiChip-deleteIcon': {
                                 color: isShared ? '#2e7d32' : '#1565c0',
                                 '&:hover': {
-                                  color: isShared ? '#1b5e20' : '#0d47a1'
-                                }
-                              }
+                                  color: isShared ? '#1b5e20' : '#0d47a1',
+                                },
+                              },
                             }}
                           />
                         );
@@ -1188,27 +1293,29 @@ const MemberManagement = () => {
               </Grid>
             </Box>
           </DialogContent>
-          <DialogActions sx={{ 
-            background: BROWN_BG,
-            borderTop: '1px solid #e0cfc0',
-            p: 2,
-            gap: 1
-          }}>
-            <Button 
+          <DialogActions
+            sx={{
+              background: BROWN_BG,
+              borderTop: '1px solid #e0cfc0',
+              p: 2,
+              gap: 1,
+            }}
+          >
+            <Button
               onClick={() => setEditMode(false)}
               variant="outlined"
-              sx={{ 
+              sx={{
                 borderColor: BROWN_TEXT,
                 color: BROWN_TEXT,
-                '&:hover': { 
+                '&:hover': {
                   borderColor: BROWN_TEXT,
-                  background: '#e0cfc0'
-                }
+                  background: '#e0cfc0',
+                },
               }}
             >
               취소
             </Button>
-            <Button 
+            <Button
               onClick={() => {
                 console.log('저장 버튼 클릭 - 현재 editedMember:', editedMember);
                 if (!editedMember || !editedMember.id) {
@@ -1216,14 +1323,14 @@ const MemberManagement = () => {
                   return;
                 }
                 handleSaveClick();
-              }} 
+              }}
               variant="contained"
-              sx={{ 
+              sx={{
                 background: BROWN_TEXT,
                 color: '#fff',
-                '&:hover': { 
-                  background: '#2c1810'
-                }
+                '&:hover': {
+                  background: '#2c1810',
+                },
               }}
             >
               저장
@@ -1234,5 +1341,7 @@ const MemberManagement = () => {
     </Box>
   );
 };
+
+MemberManagement.displayName = 'MemberManagement';
 
 export default MemberManagement;
