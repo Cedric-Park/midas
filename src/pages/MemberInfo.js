@@ -122,12 +122,56 @@ const MemberInfo = ({ match }) => {
           />
 
           <TextField
-            label="Points"
-            value={member.points}
-            onChange={e => setMember({ ...member, points: parseInt(e.target.value) })}
+            label="남은 관리횟수"
+            value={member.remaining_sessions}
+            onChange={e => setMember({ ...member, remaining_sessions: parseInt(e.target.value) })}
             fullWidth
             disabled={!editMode}
           />
+          <Box sx={{ mt: 1, display: 'flex', gap: 1 }}>
+            {/* 공유 중 칩 */}
+            {(() => {
+              let sharedWithArr = [];
+              try {
+                sharedWithArr = Array.isArray(member.shared_with)
+                  ? member.shared_with
+                  : JSON.parse(member.shared_with);
+              } catch {
+                sharedWithArr = [];
+              }
+              return sharedWithArr.length > 0 ? (
+                <span
+                  style={{
+                    display: 'inline-block',
+                    background: '#e8f5e9',
+                    color: '#2e7d32',
+                    borderRadius: 8,
+                    padding: '2px 8px',
+                    fontWeight: 600,
+                    fontSize: 13,
+                  }}
+                >
+                  공유 중
+                </span>
+              ) : null;
+            })()}
+            {/* 의존 중 칩 */}
+            {member.depends_on && (
+              <span
+                style={{
+                  display: 'inline-block',
+                  background: '#e3f2fd',
+                  color: '#1565c0',
+                  borderRadius: 8,
+                  padding: '2px 8px',
+                  fontWeight: 600,
+                  fontSize: 13,
+                }}
+              >
+                의존 중
+              </span>
+            )}
+          </Box>
 
           <TextField label="Join Date" value={member.joinDate} fullWidth disabled />
 
