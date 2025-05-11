@@ -998,6 +998,7 @@ const CalendarTest = () => {
                           }
                           return (
                             <>
+                              {/* 공유 중인 회원 */}
                               {Array.isArray(sharedWithArray) && sharedWithArray.length > 0 && (
                                 <Grid item xs={12}>
                                   <Typography variant="body2" color="text.secondary">
