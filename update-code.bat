@@ -1,84 +1,93 @@
 @echo off
+chcp 65001 > nul
+setlocal enabledelayedexpansion
+
 echo Checking remote connection...
 git remote -v
 if errorlevel 1 (
     echo Error: No remote repository found.
-    echo Please run connect-github.bat first.
     pause
     exit /b 1
 )
 
-echo.
 echo Checking current version...
-for /f "tokens=*" %%a in ('type src\pages\PatchNotes.js ^| findstr /C:"version:"') do (
-    set CURRENT_VERSION=%%a
+if not exist "src\pages\PatchNotes.js" (
+    echo Error: PatchNotes.js file not found.
+    pause
+    exit /b 1
 )
-set CURRENT_VERSION=%CURRENT_VERSION:      version: =%
-set CURRENT_VERSION=%CURRENT_VERSION:,=%
-set CURRENT_VERSION=%CURRENT_VERSION:'=%
-set CURRENT_VERSION=%CURRENT_VERSION: =%
 
-echo.
-echo Fetching latest version info...
-git fetch origin
+set "current_version="
+for /f "tokens=*" %%a in ('type "src\pages\PatchNotes.js" ^| findstr /C:"version:"') do (
+    set "line=%%a"
+    set "line=!line:version:=!"
+    set "line=!line: =!"
+    set "line=!line:'=!"
+    set "line=!line:,=!"
+    set "current_version=!line!"
+)
+
+if not defined current_version (
+    echo Error: Could not find current version.
+    pause
+    exit /b 1
+)
+
+echo Current version: !current_version!
+
+echo Fetching latest code...
+git fetch origin develop
 if errorlevel 1 (
     echo Error: Failed to fetch from remote repository.
     pause
     exit /b 1
 )
 
-git show origin/develop:src/pages/PatchNotes.js > temp_patch_notes.js
-for /f "tokens=*" %%a in ('type temp_patch_notes.js ^| findstr /C:"version:"') do (
-    set LATEST_VERSION=%%a
-)
-del temp_patch_notes.js
-set LATEST_VERSION=%LATEST_VERSION:      version: =%
-set LATEST_VERSION=%LATEST_VERSION:,=%
-set LATEST_VERSION=%LATEST_VERSION:'=%
-set LATEST_VERSION=%LATEST_VERSION: =%
-
-echo Current version: %CURRENT_VERSION%
-echo Latest version: %LATEST_VERSION%
-
-if "%CURRENT_VERSION%" == "%LATEST_VERSION%" (
-    echo.
-    echo Already running the latest version.
-    pause
-    exit /b 0
+echo Checking latest version...
+set "latest_version="
+for /f "tokens=*" %%a in ('git show origin/develop:src/pages/PatchNotes.js ^| findstr /C:"version:"') do (
+    set "line=%%a"
+    set "line=!line:version:=!"
+    set "line=!line: =!"
+    set "line=!line:'=!"
+    set "line=!line:,=!"
+    set "latest_version=!line!"
 )
 
-if "%CURRENT_VERSION%" gtr "%LATEST_VERSION%" (
-    echo.
-    echo Error: Current version is newer than the latest version.
-    echo This might indicate a version mismatch.
+if not defined latest_version (
+    echo Error: Could not find latest version.
     pause
     exit /b 1
 )
 
-echo.
-echo New version available. Proceeding with update...
+echo Latest version: !latest_version!
 
-echo.
-echo Updating local code to latest version...
-git reset --hard HEAD
-git pull origin develop --no-commit
+if "!current_version!"=="!latest_version!" (
+    echo Already running the latest version. No update needed.
+    pause
+    exit /b 0
+)
+
+echo Starting update...
+
+echo Updating local code...
+git reset --hard origin/develop
 if errorlevel 1 (
     echo Error: Failed to update local code.
     pause
     exit /b 1
 )
 
-echo.
 echo Updating npm packages...
-npm install
+call npm install
 if errorlevel 1 (
     echo Error: Failed to update npm packages.
     pause
     exit /b 1
 )
 
-echo.
 echo Update completed successfully.
-echo Please run restart.bat to apply the changes.
-echo.
+echo Please run the following commands to complete the update:
+echo 1. node migrate-timestamps.js
+echo 2. restart.bat
 pause 
