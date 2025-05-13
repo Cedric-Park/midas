@@ -105,23 +105,90 @@ const memberService = {
   // 회원 정보 수정
   updateMember: async (id, updateData) => {
     try {
-      console.log('수정할 회원 ID:', id);
-      console.log('수정할 데이터:', updateData);
+      console.log('PATCH_DEBUG | [SERVER] updateData:', updateData);
 
       const member = await db('members').where({ id }).first();
       if (!member) {
         throw new AppError('회원을 찾을 수 없습니다.', 404);
       }
 
-      // JSON 필드 안전하게 처리
+      // 기존 값 파싱
+      const prevSharedWith = member.shared_with ? JSON.parse(member.shared_with) : [];
+      const prevDependsOn = member.depends_on;
+      const newSharedWith = updateData.shared_with ? (typeof updateData.shared_with === 'string' ? JSON.parse(updateData.shared_with) : updateData.shared_with) : [];
+      const newDependsOn = updateData.depends_on || null;
+
+      console.log('PATCH_DEBUG | [SERVER] prevSharedWith:', prevSharedWith);
+      console.log('PATCH_DEBUG | [SERVER] newSharedWith:', newSharedWith);
+      console.log('PATCH_DEBUG | [SERVER] prevDependsOn:', prevDependsOn);
+      console.log('PATCH_DEBUG | [SERVER] newDependsOn:', newDependsOn);
+
+      // shared_with 동기화: shared_with가 실제로 바뀌는 경우에만 실행
+      if (
+        typeof updateData.shared_with !== 'undefined' &&
+        updateData.shared_with !== null &&
+        updateData.shared_with !== ''
+      ) {
+        const removedMembers = prevSharedWith.filter(id => !newSharedWith.includes(id));
+        console.log('PATCH_DEBUG | [SERVER] removedMembers:', removedMembers);
+        // shared_with 동기화: 제거된 회원들의 depends_on에서 본인 ID만 업데이트
+        for (const memberId of removedMembers) {
+          const m = await db('members').where({ id: memberId }).first();
+          if (m && m.depends_on === id) {
+            await db('members').where({ id: memberId }).update({ depends_on: null, updated_at: db.fn.now() });
+          }
+        }
+        // shared_with 동기화: 새로 추가된 회원들의 depends_on에 본인 ID만 업데이트
+        for (const memberId of newSharedWith) {
+          const m = await db('members').where({ id: memberId }).first();
+          if (m && m.depends_on !== id) {
+            await db('members').where({ id: memberId }).update({ depends_on: id, updated_at: db.fn.now() });
+          }
+        }
+        // B(의존자)의 shared_with는 절대 업데이트하지 않음
+      }
+      // depends_on 동기화: depends_on이 실제로 바뀌는 경우에만 실행
+      if (
+        typeof updateData.depends_on !== 'undefined' &&
+        updateData.depends_on !== null &&
+        updateData.depends_on !== ''
+      ) {
+        // B(의존자)의 depends_on만 업데이트, shared_with는 건드리지 않음
+      }
+
+      // safeUpdateData 생성 직전
       const safeUpdateData = {
         ...updateData,
-        shared_with: typeof updateData.shared_with === 'string' 
-          ? updateData.shared_with 
-          : JSON.stringify(updateData.shared_with || []),
-        depends_on: updateData.depends_on || null,  // 단일 문자열로 처리
         updated_at: db.fn.now()
       };
+      console.log('PATCH_DEBUG | [SERVER] safeUpdateData(생성직전):', safeUpdateData);
+
+      // shared_with/depends_on이 undefined, null, 빈 문자열이거나 updateData에 없으면 safeUpdateData에서 삭제
+      if (
+        !('shared_with' in updateData) ||
+        updateData.shared_with === undefined ||
+        updateData.shared_with === null ||
+        updateData.shared_with === ''
+      ) {
+        delete safeUpdateData.shared_with;
+      } else {
+        safeUpdateData.shared_with = typeof updateData.shared_with === 'string'
+          ? updateData.shared_with
+          : JSON.stringify(updateData.shared_with || []);
+      }
+      if (
+        !('depends_on' in updateData) ||
+        updateData.depends_on === undefined ||
+        updateData.depends_on === null ||
+        updateData.depends_on === ''
+      ) {
+        delete safeUpdateData.depends_on;
+      } else {
+        safeUpdateData.depends_on = updateData.depends_on;
+      }
+
+      // DB update 직전
+      console.log('PATCH_DEBUG | [SERVER] 최종 DB update:', safeUpdateData);
 
       const [updatedMember] = await db('members')
         .where({ id })

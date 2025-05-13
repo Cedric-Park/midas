@@ -108,21 +108,28 @@ exports.updateMember = async (req, res, next) => {
       throw new AppError('회원을 찾을 수 없습니다.', 404);
     }
 
+    // 업데이트할 필드 객체 생성
+    const updateObj = {
+      name,
+      phone,
+      birth_date,
+      gender,
+      purpose,
+      notes,
+      relationship,
+      remaining_sessions,
+      updated_at: db.fn.now()
+    };
+    if ('shared_with' in req.body) {
+      updateObj.shared_with = shared_with;
+    }
+    if ('depends_on' in req.body) {
+      updateObj.depends_on = depends_on;
+    }
+
     const [updatedMember] = await db('members')
       .where({ id })
-      .update({
-        name,
-        phone,
-        birth_date,
-        gender,
-        purpose,
-        notes,
-        relationship,
-        shared_with: shared_with || '[]',
-        depends_on: depends_on || null,
-        remaining_sessions,
-        updated_at: db.fn.now()
-      })
+      .update(updateObj)
       .returning('*');
 
     res.status(200).json(updatedMember);

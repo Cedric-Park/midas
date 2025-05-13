@@ -1,3 +1,4 @@
+/* eslint-disable prettier/prettier */
 import React, { useState, useEffect } from 'react';
 import Calendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
@@ -372,6 +373,20 @@ const CalendarTest = () => {
       return;
     }
 
+    // [1] 함수 진입
+    console.log('[1] 함수 진입', eventMember.id, eventMember.shared_with);
+
+    // [2] PATCH 전
+    if (eventMember.depends_on) {
+      console.log(
+        '[2] PATCH 전][공유 정보] 의존 대상자',
+        eventMember.depends_on,
+        members.find(m => m.id === eventMember.depends_on)?.shared_with
+      );
+    } else {
+      console.log('[2] PATCH 전][공유 정보] 본인', eventMember.id, eventMember.shared_with);
+    }
+
     try {
       // 1. 세션 내역 저장
       await axios.post('http://localhost:3001/api/sessionHistory', {
@@ -389,16 +404,22 @@ const CalendarTest = () => {
       });
 
       // 3. 관리횟수 차감 로직
+      let patchRes = null;
       if (eventMember.depends_on) {
-        // 의존 중인 경우: 의존 대상자의 관리횟수 차감
         const dependsOnMember = members.find(m => m.id === eventMember.depends_on);
         if (dependsOnMember) {
           const before = dependsOnMember.remaining_sessions || 0;
           const after = Math.max(0, before - 1);
-          await axios.patch(`http://localhost:3001/api/members/${dependsOnMember.id}`, {
-            remaining_sessions: after,
+          // 관계 필드 없이 remaining_sessions만 PATCH
+          patchRes = await axios.patch(`http://localhost:3001/api/members/${dependsOnMember.id}`, {
+            remaining_sessions: after
           });
-          // 의존 대상자의 sessionHistory에 차감 내역 기록
+          // [3] PATCH 응답
+          console.log(
+            '[3] PATCH 응답][공유 정보] 의존 대상자',
+            dependsOnMember.id,
+            patchRes.data.shared_with
+          );
           await axios.post('http://localhost:3001/api/sessionHistory', {
             memberId: dependsOnMember.id,
             date: selectedEvent.start,
@@ -406,17 +427,80 @@ const CalendarTest = () => {
           });
         }
       } else {
-        // 공유 중이거나 단독: 본인 관리횟수 차감
-        await axios.patch(`http://localhost:3001/api/members/${eventMember.id}`, {
-          remaining_sessions: Math.max(0, (eventMember.remaining_sessions || 0) - 1),
+        // 관계 필드 없이 remaining_sessions만 PATCH
+        patchRes = await axios.patch(`http://localhost:3001/api/members/${eventMember.id}`, {
+          remaining_sessions: Math.max(0, (eventMember.remaining_sessions || 0) - 1)
         });
+        // [3] PATCH 응답
+        console.log('[3] PATCH 응답][공유 정보] 본인', eventMember.id, patchRes.data.shared_with);
       }
 
       // 4. appointments, members 등 최신화
       const appointmentsRes = await axios.get('http://localhost:3001/api/appointments');
       setAppointments(appointmentsRes.data);
       const membersRes = await axios.get('http://localhost:3001/api/members');
+      // [4] membersRes.data 받아온 직후
+      if (eventMember.depends_on) {
+        const dependsOnMember = membersRes.data.find(m => m.id === eventMember.depends_on);
+        if (dependsOnMember) {
+          console.log(
+            '[4] membersRes.data][공유 정보] 의존 대상자',
+            dependsOnMember.id,
+            dependsOnMember.shared_with
+          );
+        }
+      } else {
+        const updatedMember = membersRes.data.find(m => m.id === eventMember.id);
+        if (updatedMember) {
+          console.log(
+            '[4] membersRes.data][공유 정보] 본인',
+            updatedMember.id,
+            updatedMember.shared_with
+          );
+        }
+      }
       setMembers(membersRes.data);
+      // [5] setMembers 직후
+      if (eventMember.depends_on) {
+        const dependsOnMember = membersRes.data.find(m => m.id === eventMember.depends_on);
+        if (dependsOnMember) {
+          console.log(
+            '[5] setMembers 후][공유 정보] 의존 대상자',
+            dependsOnMember.id,
+            dependsOnMember.shared_with
+          );
+        }
+      } else {
+        const updatedMember = membersRes.data.find(m => m.id === eventMember.id);
+        if (updatedMember) {
+          console.log(
+            '[5] setMembers 후][공유 정보] 본인',
+            updatedMember.id,
+            updatedMember.shared_with
+          );
+        }
+      }
+
+      // 기존 완료 후 로그
+      if (eventMember.depends_on) {
+        const dependsOnMember = membersRes.data.find(m => m.id === eventMember.depends_on);
+        if (dependsOnMember) {
+          console.log(
+            '[세션 완료 후][공유 정보] 의존 대상자',
+            dependsOnMember.id,
+            dependsOnMember.shared_with
+          );
+        }
+      } else {
+        const updatedMember = membersRes.data.find(m => m.id === eventMember.id);
+        if (updatedMember) {
+          console.log(
+            '[세션 완료 후][공유 정보] 본인',
+            updatedMember.id,
+            updatedMember.shared_with
+          );
+        }
+      }
 
       handleCloseEventDialog();
     } catch (error) {

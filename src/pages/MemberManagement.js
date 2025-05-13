@@ -1,3 +1,4 @@
+/* eslint-disable prettier/prettier */
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
@@ -47,26 +48,13 @@ const AddMemberDialog = React.memo(({ open, onClose, onAdd, members }) => {
     birthDate: '',
     purpose: '다이어트',
     phone: '',
-    remainCount: 12,
+    remainCount: 0,
     notes: '',
     relationship: '',
   });
-  const [selectedSharedMember, setSelectedSharedMember] = useState(null);
-  const [sharedMembers, setSharedMembers] = useState([]);
 
   const handleChange = (field, value) => {
     setNewMember(prev => ({ ...prev, [field]: value }));
-  };
-
-  const handleSharedMemberChange = (event, newValue) => {
-    if (newValue && !sharedMembers.find(m => m.id === newValue.id)) {
-      setSharedMembers([...sharedMembers, newValue]);
-    }
-    setSelectedSharedMember(null);
-  };
-
-  const handleRemoveSharedMember = memberId => {
-    setSharedMembers(sharedMembers.filter(m => m.id !== memberId));
   };
 
   const handleSubmit = async () => {
@@ -85,7 +73,6 @@ const AddMemberDialog = React.memo(({ open, onClose, onAdd, members }) => {
         remaining_sessions: newMember.remainCount,
         birthDate: undefined,
         remainCount: undefined,
-        shared_with: JSON.stringify(sharedMembers.map(m => m.id)),
       });
 
       onAdd(response.data);
@@ -95,11 +82,10 @@ const AddMemberDialog = React.memo(({ open, onClose, onAdd, members }) => {
         birthDate: '',
         purpose: '다이어트',
         phone: '',
-        remainCount: 12,
+        remainCount: 0,
         notes: '',
         relationship: '',
       });
-      setSharedMembers([]);
       onClose();
     } catch (error) {
       alert('회원 등록에 실패했습니다.');
@@ -186,57 +172,6 @@ const AddMemberDialog = React.memo(({ open, onClose, onAdd, members }) => {
             multiline
             minRows={2}
           />
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-              관리 횟수 연결
-            </Typography>
-            <Autocomplete
-              options={members.filter(m => !sharedMembers.find(sm => sm.id === m.id))}
-              getOptionLabel={option => {
-                let sharedWithArr = [];
-                try {
-                  sharedWithArr = Array.isArray(option.shared_with)
-                    ? option.shared_with
-                    : JSON.parse(option.shared_with);
-                } catch {
-                  sharedWithArr = [];
-                }
-                const hasSharedCount = sharedWithArr.length > 0;
-                const isDependent = option.depends_on !== null;
-                let label = `${option.name} (${option.phone})`;
-                if (hasSharedCount) {
-                  label += ' [관리횟수 공유 중]';
-                } else if (isDependent) {
-                  label += ' [관리횟수 의존 중]';
-                }
-                return label;
-              }}
-              value={selectedSharedMember}
-              onChange={handleSharedMemberChange}
-              renderInput={params => (
-                <TextField {...params} size="small" placeholder="관리 횟수 연결할 회원 검색" />
-              )}
-            />
-            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-              {sharedMembers.map(member => (
-                <Chip
-                  key={member.id}
-                  label={member.name}
-                  onDelete={() => handleRemoveSharedMember(member.id)}
-                  sx={{
-                    backgroundColor: '#e3f2fd',
-                    color: '#1565c0',
-                    '& .MuiChip-deleteIcon': {
-                      color: '#1565c0',
-                      '&:hover': {
-                        color: '#0d47a1',
-                      },
-                    },
-                  }}
-                />
-              ))}
-            </Box>
-          </Box>
         </Box>
       </DialogContent>
       <DialogActions>
@@ -266,7 +201,7 @@ const MemberManagement = () => {
     birthDate: '',
     purpose: '다이어트',
     phone: '',
-    remainCount: 12,
+    remainCount: 0,
     notes: '',
     relationship: '',
   });
@@ -288,6 +223,7 @@ const MemberManagement = () => {
   });
   const [sharedMembers, setSharedMembers] = useState([]);
   const [selectedSharedMember, setSelectedSharedMember] = useState(null);
+  const [shareMode, setShareMode] = useState('share'); // 'share' | 'depend'
 
   useEffect(() => {
     fetchMembers();
@@ -478,19 +414,32 @@ const MemberManagement = () => {
         phone: member.phone || '',
         notes: member.notes || '',
         relationship: member.relationship || '',
-        shared_with: member.shared_with,
         remaining_sessions: Number(editValue) || 0,
         join_date: member.join_date || new Date().toISOString().split('T')[0],
         last_visit: member.last_visit || '',
       };
-
+      // shared_with가 undefined/null/''이 아니면만 포함
+      if (
+        typeof member.shared_with !== 'undefined' &&
+        member.shared_with !== null &&
+        member.shared_with !== ''
+      ) {
+        updateData.shared_with = member.shared_with;
+      }
+      // depends_on도 마찬가지
+      if (
+        typeof member.depends_on !== 'undefined' &&
+        member.depends_on !== null &&
+        member.depends_on !== ''
+      ) {
+        updateData.depends_on = member.depends_on;
+      }
       console.log('업데이트할 데이터:', updateData);
       const response = await axios.patch(
         `http://localhost:3001/api/members/${member.id}`,
         updateData
       );
       console.log('서버 응답:', response.data);
-
       setEditCell({ id: null, field: null });
       setEditValue('');
       await fetchMembers();
@@ -518,22 +467,8 @@ const MemberManagement = () => {
   };
 
   const handleEditClick = member => {
-    console.log('handleEditClick 호출 - 전달받은 회원 정보:', member);
-
-    if (!member || !member.id) {
-      console.error('회원 정보 또는 ID가 없습니다:', member);
-      return;
-    }
-
-    // ID가 'null'인 경우 체크
-    if (member.id === 'null') {
-      console.error('회원 ID가 "null"입니다:', member);
-      return;
-    }
-
+    if (!member || !member.id) return;
     setEditMode(true);
-
-    // 회원 정보를 새 객체로 복사하여 설정
     const updatedMember = {
       id: member.id.toString(),
       name: member.name || '',
@@ -543,121 +478,138 @@ const MemberManagement = () => {
       phone: member.phone || '',
       notes: member.notes || '',
       relationship: member.relationship || '',
-      shared_with: member.shared_with || '[]',
       depends_on: member.depends_on || null,
       remaining_sessions: member.remaining_sessions || 0,
+      shared_with: member.shared_with || '[]',
     };
-
-    console.log('설정될 회원 정보:', updatedMember);
     setEditedMember(updatedMember);
-
-    // 공유 중인 회원들과 의존 중인 회원들을 모두 가져옴
     const sharedIds = member.shared_with ? JSON.parse(member.shared_with) : [];
     const dependsOnId = member.depends_on;
+    if (dependsOnId) {
+      setShareMode('depend');
+      setSelectedSharedMember(members.find(m => m.id === dependsOnId) || null);
+      setSharedMembers([]);
+    } else {
+      setShareMode('share');
+      setSelectedSharedMember(null);
+      setSharedMembers(members.filter(m => sharedIds.includes(m.id)));
+    }
+  };
 
-    const sharedMembersList = members.filter(m => sharedIds.includes(m.id));
-    const dependsOnMember = dependsOnId ? members.find(m => m.id === dependsOnId) : null;
-
-    setSharedMembers([...sharedMembersList, ...(dependsOnMember ? [dependsOnMember] : [])]);
+  const handleRemoveSharedMember = memberId => {
+    if (shareMode === 'share') {
+      setSharedMembers(prev => prev.filter(m => m.id !== memberId));
+    } else if (shareMode === 'depend') {
+      setSelectedSharedMember(null);
+    }
   };
 
   const handleSaveClick = async () => {
     try {
-      console.log('저장 시작 - editedMember:', editedMember);
-
-      if (!editedMember) {
-        console.error('editedMember가 없습니다');
-        alert('회원 정보가 올바르지 않습니다.');
-        return;
+      let updateData;
+      if (shareMode === 'share') {
+        // 공유자: sharedMembers 기준 동기화
+        const prevSharedIds = (() => {
+          try {
+            return Array.isArray(editedMember.shared_with)
+              ? editedMember.shared_with
+              : JSON.parse(editedMember.shared_with || '[]');
+          } catch {
+            return [];
+          }
+        })();
+        const sharedIds = sharedMembers.map(m => m.id.toString());
+        // 1. 새로 추가/유지된 멤버는 depends_on을 나로
+        for (const sharedMember of sharedMembers) {
+          await axios.patch(
+            `http://localhost:3001/api/members/${sharedMember.id}`,
+            { depends_on: editedMember.id }
+          );
+        }
+        // 2. 기존에 공유했지만 이번에 빠진 멤버는 depends_on null
+        for (const prevId of prevSharedIds) {
+          if (!sharedIds.includes(prevId)) {
+            await axios.patch(
+              `http://localhost:3001/api/members/${prevId}`,
+              { depends_on: null }
+            );
+          }
+        }
+        updateData = {
+          id: editedMember.id,
+          name: editedMember.name,
+          gender: editedMember.gender,
+          birth_date: editedMember.birth_date,
+          purpose: editedMember.purpose,
+          phone: editedMember.phone,
+          notes: editedMember.notes,
+          relationship: editedMember.relationship,
+          shared_with: JSON.stringify(sharedIds),
+          depends_on: null,
+        };
+      } else if (shareMode === 'depend') {
+        // 의존자: selectedSharedMember 기준 동기화
+        const prevDependsOn = editedMember.depends_on;
+        const newDependsOn = selectedSharedMember ? selectedSharedMember.id : null;
+        // 1. 내 depends_on PATCH
+        updateData = {
+          id: editedMember.id,
+          name: editedMember.name,
+          gender: editedMember.gender,
+          birth_date: editedMember.birth_date,
+          purpose: editedMember.purpose,
+          phone: editedMember.phone,
+          notes: editedMember.notes,
+          relationship: editedMember.relationship,
+          shared_with: '[]',
+          depends_on: newDependsOn,
+        };
+        // 2. 이전 의존 대상의 shared_with에서 내 id 제거
+        if (prevDependsOn && prevDependsOn !== newDependsOn) {
+          const prevTargetData = await axios.get(
+            `http://localhost:3001/api/members/${prevDependsOn}`
+          );
+          if (prevTargetData.data) {
+            const prevTargetSharedWith = prevTargetData.data.shared_with
+              ? JSON.parse(prevTargetData.data.shared_with)
+              : [];
+            const updatedSharedWith = prevTargetSharedWith.filter(mid => mid !== editedMember.id);
+            await axios.patch(`http://localhost:3001/api/members/${prevDependsOn}`, {
+              ...prevTargetData.data,
+              shared_with: JSON.stringify(updatedSharedWith),
+            });
+          }
+        }
+        // 3. 새 의존 대상의 shared_with에 내 id 추가
+        if (newDependsOn && prevDependsOn !== newDependsOn) {
+          const targetData = await axios.get(
+            `http://localhost:3001/api/members/${newDependsOn}`
+          );
+          if (targetData.data) {
+            const targetSharedWith = targetData.data.shared_with
+              ? JSON.parse(targetData.data.shared_with)
+              : [];
+            if (!targetSharedWith.includes(editedMember.id)) {
+              await axios.patch(`http://localhost:3001/api/members/${newDependsOn}`, {
+                ...targetData.data,
+                shared_with: JSON.stringify([...targetSharedWith, editedMember.id]),
+              });
+            }
+          }
+        }
       }
-
-      if (!editedMember.id) {
-        console.error('editedMember.id가 없습니다:', editedMember);
-        alert('회원 ID가 없습니다.');
-        return;
-      }
-
-      if (editedMember.id === 'null') {
-        console.error('editedMember.id가 "null"입니다:', editedMember);
-        alert('회원 ID가 올바르지 않습니다.');
-        return;
-      }
-
-      // 현재 선택된 공유 회원들의 ID 배열
-      const sharedIds = sharedMembers.map(m => m.id.toString());
-      console.log('공유할 회원 ID들:', sharedIds);
-
-      // 현재 회원의 정보 업데이트
-      const updateData = {
-        ...editedMember,
-        shared_with: JSON.stringify(sharedIds),
-        depends_on: null,
-      };
-
-      console.log('서버로 전송할 데이터:', updateData);
-      const response = await axios.patch(
+      // 내 정보 PATCH
+      await axios.patch(
         `http://localhost:3001/api/members/${editedMember.id}`,
         updateData
       );
-      console.log('서버 응답:', response.data);
-
-      // 이전에 연결되어 있던 회원들 조회
-      const previousSharedWith = editedMember.shared_with
-        ? JSON.parse(editedMember.shared_with)
-        : [];
-
-      // 더 이상 공유되지 않는 회원들의 ID 배열
-      const removedMembers = previousSharedWith.filter(id => !sharedIds.includes(id));
-      console.log('제거된 회원 ID들:', removedMembers);
-
-      // 제거된 회원들의 depends_on에서 현재 회원 ID 제거
-      for (const memberId of removedMembers) {
-        const member = await axios.get(`http://localhost:3001/api/members/${memberId}`);
-        if (member.data) {
-          const currentDependsOn = member.data.depends_on;
-          if (currentDependsOn === editedMember.id) {
-            await axios.patch(`http://localhost:3001/api/members/${memberId}`, {
-              ...member.data,
-              depends_on: null,
-            });
-          }
-        }
-      }
-
-      // 새로 추가된 회원들의 depends_on에 현재 회원 ID 추가
-      for (const memberId of sharedIds) {
-        const member = await axios.get(`http://localhost:3001/api/members/${memberId}`);
-        if (member.data) {
-          const currentDependsOn = member.data.depends_on;
-          if (currentDependsOn !== editedMember.id) {
-            await axios.patch(`http://localhost:3001/api/members/${memberId}`, {
-              ...member.data,
-              depends_on: editedMember.id,
-            });
-          }
-        }
-      }
-
       setEditMode(false);
       await fetchMembers();
-
-      // 회원 변경 이벤트 발생
       window.dispatchEvent(new Event('memberChange'));
     } catch (error) {
       console.error('회원 정보 수정에 실패했습니다:', error);
       alert('회원 정보 수정에 실패했습니다.');
     }
-  };
-
-  const handleSharedMemberChange = (event, newValue) => {
-    if (newValue && !sharedMembers.find(m => m.id === newValue.id)) {
-      setSharedMembers([...sharedMembers, newValue]);
-    }
-    setSelectedSharedMember(null);
-  };
-
-  const handleRemoveSharedMember = memberId => {
-    setSharedMembers(sharedMembers.filter(m => m.id !== memberId));
   };
 
   return (
@@ -1220,13 +1172,35 @@ const MemberManagement = () => {
                 </Grid>
                 <Grid item xs={12}>
                   <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                    관리 횟수 연결 방식
+                  </Typography>
+                  <ToggleButtonGroup
+                    value={shareMode}
+                    exclusive
+                    onChange={(_, v) => v && setShareMode(v)}
+                    fullWidth
+                    size="small"
+                    sx={{ mb: 1 }}
+                  >
+                    <ToggleButton value="share" sx={{ flex: 1, py: 1 }}>
+                      내가 관리횟수 공유
+                    </ToggleButton>
+                    <ToggleButton value="depend" sx={{ flex: 1, py: 1 }}>
+                      내가 남의 관리횟수 의존
+                    </ToggleButton>
+                  </ToggleButtonGroup>
+                </Grid>
+                <Grid item xs={12}>
+                  <Typography variant="subtitle2" color="text.secondary" gutterBottom>
                     관리 횟수 연결
                   </Typography>
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                     <Autocomplete
-                      options={members.filter(
-                        m => m.id !== editedMember.id && !sharedMembers.find(sm => sm.id === m.id)
-                      )}
+                      options={
+                        members.filter(
+                          m => m.id !== editedMember.id && Array.isArray(sharedMembers) && !sharedMembers.find(sm => sm.id === m.id)
+                        )
+                      }
                       getOptionLabel={option => {
                         let sharedWithArr = [];
                         try {
@@ -1246,8 +1220,18 @@ const MemberManagement = () => {
                         }
                         return label;
                       }}
-                      value={selectedSharedMember}
-                      onChange={handleSharedMemberChange}
+                      value={shareMode === 'share' ? null : selectedSharedMember}
+                      onChange={(event, newValue) => {
+                        if (shareMode === 'share') {
+                          if (newValue && !sharedMembers.find(m => m.id === newValue.id)) {
+                            setSharedMembers([...sharedMembers, newValue]);
+                          }
+                        } else {
+                          setSelectedSharedMember(newValue);
+                          setSharedMembers(newValue ? [newValue] : []);
+                        }
+                      }}
+                      multiple={false}
                       renderInput={params => (
                         <TextField
                           {...params}
@@ -1257,12 +1241,17 @@ const MemberManagement = () => {
                       )}
                     />
                     <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                      {sharedMembers.map(member => {
+                      {(shareMode === 'share'
+                        ? sharedMembers
+                        : selectedSharedMember
+                        ? [selectedSharedMember]
+                        : []
+                      ).map(member => {
                         let sharedWithArr = [];
                         try {
                           sharedWithArr = Array.isArray(editedMember.shared_with)
                             ? editedMember.shared_with
-                            : JSON.parse(editedMember.shared_with);
+                            : JSON.parse(editedMember.shared_with || '[]');
                         } catch {
                           sharedWithArr = [];
                         }
